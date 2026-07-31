@@ -98,7 +98,7 @@ exports.handler = async (event) => {
   const userPrompt = `${profileName ? `Lifter: ${profileName}\n\n` : ""}Recent training log (most recent last):\n\n${sessionText}`;
 
   try {
-    const model = "gemini-2.0-flash";
+    const model = "gemini-1.5-flash";
     const res = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
 {
