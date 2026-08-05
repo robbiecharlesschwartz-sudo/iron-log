@@ -1,4 +1,4 @@
-const CACHE = "iron-log-v42";
+const CACHE = "iron-log-v43";
 const SHELL = ["./","./index.html","./app.js","./app.css","./manifest.json","./favicon.ico","./icon-180.png","./icon-192.png","./icon-512.png","./icon-512-maskable.png"];
 
 self.addEventListener("install", (event) => {
@@ -15,6 +15,29 @@ self.addEventListener("activate", (event) => {
 
 self.addEventListener("fetch", (event) => {
   if (event.request.method !== "GET") return;
+  const url = new URL(event.request.url);
+  const isShell = event.request.mode === "navigate" || url.pathname.endsWith("/index.html") || url.pathname.endsWith("/app.js") || url.pathname.endsWith("/app.css") || url.pathname.endsWith("/sw.js");
+
+  if (isShell) {
+    // Network-first for anything that defines app behavior. A stale cached copy of
+    // index.html/app.js is exactly what causes "I redeployed but nothing changed" —
+    // always try the network first, and only fall back to cache if truly offline.
+    event.respondWith(
+      fetch(event.request)
+        .then((response) => {
+          if (response && response.ok) {
+            const copy = response.clone();
+            caches.open(CACHE).then((cache) => cache.put(event.request, copy));
+          }
+          return response;
+        })
+        .catch(() => caches.match(event.request))
+    );
+    return;
+  }
+
+  // Cache-first for static assets (icons, etc.) where staleness doesn't matter and
+  // instant-from-cache offline behavior is the point.
   event.respondWith(
     caches.match(event.request).then((cached) => {
       const network = fetch(event.request)
