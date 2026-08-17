@@ -2,6 +2,52 @@ import { ACCENT, C, RETENTION_DAYS } from "./constants";
 import { makeId } from "./id";
 import { normalizeLiftName } from "./muscleMapping";
 
+// Collapses a legacy randomized-suffix day ID (e.g. "push-a-k2j9x1p") back to its
+// canonical built-in form ("push-a"), left over from a since-fixed bug where the
+// built-in PPL day IDs got a fresh random suffix on every plan (re)selection —
+// fragmenting that day's history across a new ID each time. Leaves any ID that
+// doesn't match one of the known built-in bases untouched (custom/other-template
+// days are never renamed).
+function normalizeBuiltInDayId(id, knownIds) {
+  if (!id) return id;
+  if (knownIds.includes(id)) return id;
+  for (const k of knownIds) {
+    if (id.startsWith(k + "-")) return k;
+  }
+  return id;
+}
+
+// One-time repair: relinks sessions/customDays/dayAdds still carrying a legacy
+// randomized day ID back to the canonical built-in ID, so their history rejoins
+// that day's Progress > Load/day line instead of staying split off on its own.
+// Pure and idempotent — safe to run on every load; it's a no-op once IDs are clean.
+export function repairLegacyDayIds(sessions, customDays, dayAdds, knownIds) {
+  let changed = false;
+
+  const newSessions = sessions.map((s) => {
+    const nid = normalizeBuiltInDayId(s.dayId, knownIds);
+    if (nid === s.dayId) return s;
+    changed = true;
+    return { ...s, dayId: nid, lastUpdatedAt: Date.now() };
+  });
+
+  const newCustomDays = customDays.map((d) => {
+    const nid = normalizeBuiltInDayId(d.id, knownIds);
+    if (nid === d.id) return d;
+    changed = true;
+    return { ...d, id: nid };
+  });
+
+  const newDayAdds = {};
+  for (const [oldId, list] of Object.entries(dayAdds || {})) {
+    const nid = normalizeBuiltInDayId(oldId, knownIds);
+    if (nid !== oldId) changed = true;
+    newDayAdds[nid] = [...(newDayAdds[nid] || []), ...(list || [])];
+  }
+
+  return { sessions: newSessions, customDays: newCustomDays, dayAdds: newDayAdds, changed };
+}
+
 export function isCardioExercise(ex) {
   if (!ex) return false;
   if (ex.kind === "cardio") return true;

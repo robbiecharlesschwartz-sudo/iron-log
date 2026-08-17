@@ -15,10 +15,10 @@ import { Logo } from "./components/atoms";
 import { ACTIVE_KEY, ADDS_KEY, C, CUSTOM_EX_KEY, CUSTOM_KEY, FONT, ONBOARD_KEY, PLAN_INIT_KEY, PROFILE_KEY, SESS_KEY, SPECIAL_ROBBIE_EMAIL } from "./lib/constants";
 import { WORKOUT_DAYS, templateDaysFromBuiltIn } from "./lib/exerciseLibrary";
 import { FB_ENABLED, fbDeleteSession, fbLoadData, fbLoadSessions, fbSaveData, fbSaveSession, mergeSessions, useAuth } from "./lib/firebase";
-import { generateInsights, recommendNextDay } from "./lib/insights";
+import { ROTATION, generateInsights, recommendNextDay } from "./lib/insights";
 import { normalizeLiftName } from "./lib/muscleMapping";
 import { ensureNotifyPermission } from "./lib/notifications";
-import { buildActiveSession, committedAccum, isCardioExercise, migrateSession, pruneSessions, sessionVolume, toActiveExercise } from "./lib/sessionUtils";
+import { buildActiveSession, committedAccum, isCardioExercise, migrateSession, pruneSessions, repairLegacyDayIds, sessionVolume, toActiveExercise } from "./lib/sessionUtils";
 import { makeId } from "./lib/id";
 
 export default function IronLog() {
@@ -68,7 +68,14 @@ export default function IronLog() {
   useEffect(() => {
     (async () => {
       const { sess, custom, adds, prof, planInit, customEx } = await loadAllFor(null);
-      setSessions(sess); setCustomDays(custom); setDayAdds(adds); setProfile(prof); setPlanInitialized(planInit); setCustomExercises(customEx); setHasLocalData(sess.length > 0);
+      const repaired = repairLegacyDayIds(sess, custom, adds, ROTATION);
+      const [rSess, rCustom, rAdds] = repaired.changed ? [repaired.sessions, repaired.customDays, repaired.dayAdds] : [sess, custom, adds];
+      if (repaired.changed) {
+        window.storage.set(SESS_KEY, JSON.stringify(rSess)).catch(() => {});
+        window.storage.set(CUSTOM_KEY, JSON.stringify(rCustom)).catch(() => {});
+        window.storage.set(ADDS_KEY, JSON.stringify(rAdds)).catch(() => {});
+      }
+      setSessions(rSess); setCustomDays(rCustom); setDayAdds(rAdds); setProfile(prof); setPlanInitialized(planInit); setCustomExercises(customEx); setHasLocalData(rSess.length > 0);
       try { const r = await window.storage.get(ACTIVE_KEY); setActive(r ? JSON.parse(r.value) : null); } catch {}
       if (FB_ENABLED) { try { await window.storage.get(ONBOARD_KEY); } catch { setShowAuth(true); } }
       setReady(true);
@@ -88,7 +95,14 @@ export default function IronLog() {
       if (!u) {
         // Logged out (or initial guest load) → reload guest local data
         const { sess, custom, adds, prof, planInit, customEx } = await loadAllFor(null);
-        setSessions(sess); setCustomDays(custom); setDayAdds(adds); setProfile(prof); setPlanInitialized(planInit); setCustomExercises(customEx);
+        const repaired = repairLegacyDayIds(sess, custom, adds, ROTATION);
+        const [rSess, rCustom, rAdds] = repaired.changed ? [repaired.sessions, repaired.customDays, repaired.dayAdds] : [sess, custom, adds];
+        if (repaired.changed) {
+          window.storage.set(SESS_KEY, JSON.stringify(rSess)).catch(() => {});
+          window.storage.set(CUSTOM_KEY, JSON.stringify(rCustom)).catch(() => {});
+          window.storage.set(ADDS_KEY, JSON.stringify(rAdds)).catch(() => {});
+        }
+        setSessions(rSess); setCustomDays(rCustom); setDayAdds(rAdds); setProfile(prof); setPlanInitialized(planInit); setCustomExercises(customEx);
         // Only clear active workout if user was actually logged in before (not initial auth resolution)
         if (prevUid) setActive(null);
         setSyncStatus("offline"); setScreen("home");
@@ -105,7 +119,7 @@ export default function IronLog() {
 
       // Merge cloud data FIRST — if another device already finished setup, this device
       // needs to see that before deciding whether to show onboarding again.
-      let merged = { custom: local.custom, sess: local.sess, prof: local.prof, planInit: local.planInit };
+      let merged = { custom: local.custom, sess: local.sess, prof: local.prof, planInit: local.planInit, adds: local.adds };
       try {
         const [cloudSessions, cloudCustomDays, cloudDayAdds, cloudProfile, cloudPlanInit, cloudCustomEx] = await Promise.all([
           fbLoadSessions(u.uid), fbLoadData(u.uid, "customDays"), fbLoadData(u.uid, "dayAdds"), fbLoadData(u.uid, "profile"), fbLoadData(u.uid, "planInitialized"), fbLoadData(u.uid, "customExercises")
@@ -123,7 +137,7 @@ export default function IronLog() {
         if (toPush.length) pushResults.push(...await Promise.all(toPush.map((s) => fbSaveSession(u.uid, s))));
         if (cloudCustomDays && cloudCustomDays.length) { setCustomDays(cloudCustomDays); window.storage.set(keyFor(CUSTOM_KEY, u), JSON.stringify(cloudCustomDays)).catch(() => {}); merged.custom = cloudCustomDays; }
         else if (local.custom && local.custom.length) { pushResults.push(await fbSaveData(u.uid, "customDays", local.custom)); }
-        if (cloudDayAdds) { setDayAdds(cloudDayAdds); window.storage.set(keyFor(ADDS_KEY, u), JSON.stringify(cloudDayAdds)).catch(() => {}); }
+        if (cloudDayAdds) { setDayAdds(cloudDayAdds); window.storage.set(keyFor(ADDS_KEY, u), JSON.stringify(cloudDayAdds)).catch(() => {}); merged.adds = cloudDayAdds; }
         else if (local.adds && Object.keys(local.adds).length) { pushResults.push(await fbSaveData(u.uid, "dayAdds", local.adds)); }
         if (cloudProfile && cloudProfile.firstName) { setProfile(cloudProfile); window.storage.set(keyFor(PROFILE_KEY, u), JSON.stringify(cloudProfile)).catch(() => {}); merged.prof = cloudProfile; }
         else if (local.prof && local.prof.firstName) { pushResults.push(await fbSaveData(u.uid, "profile", local.prof)); }
@@ -134,6 +148,23 @@ export default function IronLog() {
         if (pushFailed) { setSyncStatus("failed"); setSyncError(pushFailed.error); }
         else { setSyncStatus("synced"); setSyncError(null); setLastSyncedAt(Date.now()); }
       } catch (e) { console.warn("login sync merge failed:", e); setSyncStatus("failed"); setSyncError(String(e && e.message || e)); }
+
+      // One-time repair for accounts still carrying a legacy randomized day ID (from a
+      // since-fixed bug) — relinks their sessions/customDays/dayAdds back to the stable
+      // built-in ID so history rejoins instead of staying split off on its own.
+      const beforeRepairSess = merged.sess;
+      const repaired = repairLegacyDayIds(merged.sess, merged.custom, merged.adds, ROTATION);
+      if (repaired.changed) {
+        merged.sess = repaired.sessions; merged.custom = repaired.customDays; merged.adds = repaired.dayAdds;
+        setSessions(repaired.sessions); setCustomDays(repaired.customDays); setDayAdds(repaired.dayAdds);
+        window.storage.set(keyFor(SESS_KEY, u), JSON.stringify(repaired.sessions)).catch(() => {});
+        window.storage.set(keyFor(CUSTOM_KEY, u), JSON.stringify(repaired.customDays)).catch(() => {});
+        window.storage.set(keyFor(ADDS_KEY, u), JSON.stringify(repaired.dayAdds)).catch(() => {});
+        const changedSessions = repaired.sessions.filter((s, i) => s.dayId !== beforeRepairSess[i].dayId);
+        Promise.all(changedSessions.map((s) => fbSaveSession(u.uid, s))).catch(() => {});
+        fbSaveData(u.uid, "customDays", repaired.customDays).catch(() => {});
+        fbSaveData(u.uid, "dayAdds", repaired.dayAdds).catch(() => {});
+      }
 
       // "Established" = real evidence this account has actually been used before
       // (own days, own history, on this device or any other) — independent of any flag,
