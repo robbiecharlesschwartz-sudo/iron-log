@@ -661,7 +661,7 @@ export function WorkoutScreen({ active, setActive, sessions, persistActive, onFi
           onReorder={handleReorderTo}
           onDelete={(i) => { const ex = active.exercises[i]; if (ex) handleDeleteExercise(ex.exId); }}
           renderItem={(e, idx, isDragging, handleProps) => (
-            <ExerciseCard exercise={e} prev={lastPerformanceFor(sessions, active.dayId, e.exId, e.selectedLift)} accent={accent}
+            <ExerciseCard exercise={e} prev={lastPerformanceFor(sessions, e.selectedLift)} accent={accent}
               isOpen={!isDragging && openExId === e.exId} onToggle={() => setOpenExId(openExId === e.exId ? null : e.exId)}
               onLogSet={handleLogSet} onAddSet={handleAddSet} onRemoveSet={handleRemoveSet} onSelectLift={(l) => handleSelectLift(e.exId, l)}
               onDeleteExercise={() => handleDeleteExercise(e.exId)}

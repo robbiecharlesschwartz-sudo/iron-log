@@ -302,7 +302,7 @@ export default function IronLog() {
       if (tmpl.id === "blank") { setCustomDays([]); saveCustomDays([]); return; }
       const days = tmpl.days === null
         ? templateDaysFromBuiltIn()
-        : tmpl.days.map(d => ({ ...d, id: `${d.id}-${makeId()}`, custom: true }));
+        : tmpl.days.map(d => ({ ...d, custom: true }));
       setCustomDays(days); saveCustomDays(days);
     }
   }
@@ -315,7 +315,7 @@ export default function IronLog() {
   function handleChangePlan(template) {
     const days = template.days === null
       ? templateDaysFromBuiltIn()
-      : template.days.map(d => ({ ...d, id: `${d.id}-${makeId()}`, custom: true }));
+      : template.days.map(d => ({ ...d, custom: true }));
     setCustomDays(days); saveCustomDays(days);
     setScreen("home");
   }

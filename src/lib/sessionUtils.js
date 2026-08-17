@@ -130,24 +130,20 @@ export function committedAccum(a, now) {
 }
 
 
-export function lastPerformanceFor(sessions, dayId, exId, liftName) {
-  // Scope previous performance to THIS exercise on THIS specific day, matching the
-  // actual lift selected. The same movement performed on a different day (or a
-  // different slot) is tracked separately and never suggested here. If the user
-  // swaps to a substitute, only that substitute's history *on this day* is shown.
+export function lastPerformanceFor(sessions, liftName) {
+  // Scope previous performance to this exercise across ALL days/workouts — the same
+  // movement performed on a different day still counts as "last time you did this",
+  // since the exercise itself (not the day it happened to fall on) is what matters
+  // for progressive overload.
   const target = liftName ? normalizeLiftName(liftName) : null;
+  if (!target) return null;
   let best = null; // most recent match by date — never rely on array ordering
   for (const s of sessions) {
-    if (s.dayId !== dayId) continue;
     for (const e of (s.exercises || [])) {
       if (!Array.isArray(e.sets) || e.sets.length === 0) continue;
-      // Match on slot OR the selected lift on this day (covers reordered/re-added slots).
-      const sameSlot = e.exId === exId;
       const exLift = normalizeLiftName(e.selectedLift || "");
-      const sameLift = target && exLift === target;
-      if (!sameSlot && !sameLift) continue;
-      // If a lift name is provided, only surface sets that were actually that lift.
-      const sets = target ? e.sets.filter((st) => !st.lift || normalizeLiftName(st.lift) === target) : e.sets;
+      if (exLift !== target) continue;
+      const sets = e.sets.filter((st) => !st.lift || normalizeLiftName(st.lift) === target);
       if (!sets.length) continue;
       const t = new Date(s.date).getTime();
       if (!best || t > best.t) best = { t, date: s.date, sets, lift: e.selectedLift };
