@@ -1,14 +1,15 @@
 import { useMemo, useState } from "react";
-import { Activity, Award, Clock, Download, Flame, LogOut, RefreshCw, Search, TrendingUp, User } from "lucide-react";
+import { Activity, Award, Clock, Download, Flame, LogOut, RefreshCw, Search, SlidersHorizontal, TrendingUp, User, X } from "lucide-react";
 import { AuthInline } from "./AuthScreen";
 import { SyncBadge } from "./atoms";
 import { C, CARD_SHADOW, RETENTION_DAYS } from "../lib/constants";
 import { exportToExcel } from "../lib/excelExport";
 import { FB_ENABLED } from "../lib/firebase";
 import { computeStreak, withinDays } from "../lib/insights";
+import { DEFAULT_LANDMARKS, MUSCLE_GROUPS, resolveLandmarks } from "../lib/landmarks";
 import { fmtClock } from "../lib/sessionUtils";
 
-export function ProfileScreen({ sessions, customDays, dayAdds, user, auth, syncStatus, syncError, lastSyncedAt, onForceSync, profileName, firstName, lastName, onUpdateName, bodyWeight, onUpdateBodyWeight }) {
+export function ProfileScreen({ sessions, customDays, dayAdds, user, auth, syncStatus, syncError, lastSyncedAt, onForceSync, profileName, firstName, lastName, onUpdateName, bodyWeight, onUpdateBodyWeight, landmarkOverrides, onUpdateLandmarks }) {
   const [allTime, setAllTime] = useState(false);
   const scoped = useMemo(() => allTime ? sessions : sessions.filter((s) => withinDays(s.date, 30)), [sessions, allTime]);
 
@@ -47,6 +48,19 @@ export function ProfileScreen({ sessions, customDays, dayAdds, user, auth, syncS
     onUpdateName?.(nameFirst.trim(), nameLast.trim());
     setEditingName(false);
   }
+
+  const [editingLandmarks, setEditingLandmarks] = useState(false);
+  const [landmarkDraft, setLandmarkDraft] = useState(null);
+  function openLandmarkEditor() { setLandmarkDraft(resolveLandmarks(landmarkOverrides)); setEditingLandmarks(true); }
+  function updateDraft(muscle, idx, value) {
+    setLandmarkDraft((prev) => {
+      const next = { ...prev, [muscle]: [...prev[muscle]] };
+      next[muscle][idx] = Math.max(0, Number(value) || 0);
+      return next;
+    });
+  }
+  function saveLandmarks() { onUpdateLandmarks?.(landmarkDraft); setEditingLandmarks(false); }
+  function resetLandmarks() { setLandmarkDraft({ ...DEFAULT_LANDMARKS }); }
 
   return (
     <div className="px-5 pt-6 pb-32">
@@ -177,6 +191,18 @@ export function ProfileScreen({ sessions, customDays, dayAdds, user, auth, syncS
         <div className="text-[11px] mt-2" style={{ color: C.ink4 }}>Used to show strength-to-weight ratio on each lift in Progress.</div>
       </div>
 
+      {/* ── Volume benchmarks (MEV/MAV/MRV) ─────────────────────────── */}
+      <div className="mt-4">
+        <div className="text-[11px] font-bold uppercase tracking-[0.14em] mb-2" style={{ color: C.ink3 }}>Volume benchmarks</div>
+        <div className="rounded-2xl overflow-hidden" style={{ border: `1px solid ${C.border}` }}>
+          <button onClick={openLandmarkEditor} className="w-full p-3.5 flex items-center gap-2.5 text-[13px] font-semibold text-left" style={{ color: C.ink }}>
+            <SlidersHorizontal size={15} style={{ color: C.accent }} /> Edit MEV / MAV / MRV
+            <span className="ml-auto text-[11px]" style={{ color: C.ink4 }}>Per muscle group</span>
+          </button>
+        </div>
+        <div className="text-[11px] mt-2" style={{ color: C.ink4 }}>Sets these Progress and Heatmap use to judge whether each muscle group's weekly volume is below MEV, in the MEV/MAV growth zone, or above MRV.</div>
+      </div>
+
       {/* ── Export ───────────────────────────────────────────────────── */}
       <div className="mt-4">
         <div className="text-[11px] font-bold uppercase tracking-[0.14em] mb-2" style={{ color: C.ink3 }}>Export</div>
@@ -189,6 +215,44 @@ export function ProfileScreen({ sessions, customDays, dayAdds, user, auth, syncS
         </div>
         <div className="text-[11px] mt-2" style={{ color: C.ink4 }}>Includes session log, daily summary, and personal bests{user ? ". Data is synced to your account." : "."}</div>
       </div>
+
+      {editingLandmarks && landmarkDraft && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center" style={{ backgroundColor: "rgba(0,0,0,0.4)" }} onClick={() => setEditingLandmarks(false)}>
+          <div className="w-full max-w-md rounded-t-3xl p-5 pb-8 flex flex-col" style={{ backgroundColor: C.bg, maxHeight: "85vh" }} onClick={e => e.stopPropagation()}>
+            <div className="w-10 h-1 rounded-full mx-auto mb-4 shrink-0" style={{ backgroundColor: C.border2 }} />
+            <div className="flex items-center justify-between mb-1 shrink-0">
+              <h3 className="text-[18px] font-bold tracking-tight" style={{ color: C.ink }}>Volume benchmarks</h3>
+              <button onClick={() => setEditingLandmarks(false)} className="p-1" aria-label="Close"><X size={18} style={{ color: C.ink4 }} /></button>
+            </div>
+            <p className="text-[12.5px] mb-4 shrink-0" style={{ color: C.ink3 }}>Weekly hard sets per muscle group. MEV = minimum to grow, MAV = sweet spot, MRV = recovery ceiling.</p>
+            <div className="overflow-y-auto flex-1 -mx-1 px-1">
+              <div className="grid grid-cols-4 gap-2 mb-2 px-1 sticky top-0 z-10" style={{ backgroundColor: C.bg }}>
+                <span className="text-[10px] font-bold uppercase tracking-wide" style={{ color: C.ink3 }}>Muscle</span>
+                <span className="text-[10px] font-bold uppercase tracking-wide text-center" style={{ color: C.good }}>MEV</span>
+                <span className="text-[10px] font-bold uppercase tracking-wide text-center" style={{ color: C.warn }}>MAV</span>
+                <span className="text-[10px] font-bold uppercase tracking-wide text-center" style={{ color: C.bad }}>MRV</span>
+              </div>
+              <div className="flex flex-col gap-2">
+                {MUSCLE_GROUPS.map((muscle) => (
+                  <div key={muscle} className="grid grid-cols-4 gap-2 items-center px-1">
+                    <span className="text-[13px] font-semibold truncate" style={{ color: C.ink }}>{muscle}</span>
+                    {[0, 1, 2].map((idx) => (
+                      <input key={idx} type="number" inputMode="numeric" min="0" value={landmarkDraft[muscle][idx]}
+                        onChange={(e) => updateDraft(muscle, idx, e.target.value)}
+                        className="w-full rounded-lg px-1.5 py-1.5 text-[13px] tabular-nums outline-none text-center"
+                        style={{ backgroundColor: C.surface, color: C.ink }} />
+                    ))}
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="flex gap-2 mt-4 pt-3 shrink-0" style={{ borderTop: `1px solid ${C.border}` }}>
+              <button onClick={resetLandmarks} className="flex-1 rounded-xl py-2.5 text-[13px] font-semibold" style={{ backgroundColor: C.surface, color: C.ink2 }}>Reset to defaults</button>
+              <button onClick={saveLandmarks} className="flex-1 rounded-xl py-2.5 text-[13px] font-semibold" style={{ backgroundColor: C.ink, color: "#fff" }}>Save</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

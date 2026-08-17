@@ -53,14 +53,34 @@ export function Ring({ fraction, color, size = 150, strokeWidth = 8, track = C.b
 }
 
 
+// Catmull-Rom -> cubic bezier conversion, so the line curves smoothly through
+// every point instead of joining them with sharp straight-line segments.
+function smoothPath(points) {
+  if (points.length < 2) return "";
+  if (points.length === 2) return `M${points[0][0]},${points[0][1]} L${points[1][0]},${points[1][1]}`;
+  let d = `M${points[0][0]},${points[0][1]}`;
+  for (let i = 0; i < points.length - 1; i++) {
+    const p0 = points[i === 0 ? i : i - 1];
+    const p1 = points[i];
+    const p2 = points[i + 1];
+    const p3 = points[i + 2 < points.length ? i + 2 : i + 1];
+    const cp1x = p1[0] + (p2[0] - p0[0]) / 6, cp1y = p1[1] + (p2[1] - p0[1]) / 6;
+    const cp2x = p2[0] - (p3[0] - p1[0]) / 6, cp2y = p2[1] - (p3[1] - p1[1]) / 6;
+    d += ` C${cp1x.toFixed(1)},${cp1y.toFixed(1)} ${cp2x.toFixed(1)},${cp2y.toFixed(1)} ${p2[0].toFixed(1)},${p2[1].toFixed(1)}`;
+  }
+  return d;
+}
+
 export function Sparkline({ values, color, width = 64, height = 26 }) {
   if (!values || values.length < 2) return <svg width={width} height={height} />;
   const min = Math.min(...values), max = Math.max(...values), range = max - min || 1;
   const stepX = width / (values.length - 1);
-  const pts = values.map((v, i) => `${(i * stepX).toFixed(1)},${(height - ((v - min) / range) * height).toFixed(1)}`).join(" ");
+  const pad = 2.5; // headroom so the curve's natural overshoot never clips at the top/bottom edge
+  const usable = height - pad * 2;
+  const pts = values.map((v, i) => [i * stepX, pad + usable - ((v - min) / range) * usable]);
   return (
     <svg width={width} height={height}>
-      <polyline points={pts} fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <path d={smoothPath(pts)} fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }

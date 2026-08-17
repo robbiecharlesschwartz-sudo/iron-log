@@ -1,14 +1,6 @@
 import { CSS } from "@dnd-kit/utilities";
 
 export const RANGE_OPTS = [["1W", 7], ["1M", 30], ["6M", 182], ["All Time", 100000]];
-// Volume landmarks (weekly sets per muscle) — Israetel-style MEV/MAV/MRV
-
-
-export const VOLUME_LANDMARKS = {
-  Chest: [10, 16, 22], Back: [10, 16, 22], Shoulders: [8, 16, 26], Biceps: [8, 14, 20],
-  Triceps: [6, 12, 18], Quads: [8, 14, 20], Hamstrings: [6, 12, 16], Glutes: [4, 12, 16],
-  Calves: [8, 14, 20], Core: [0, 12, 20],
-};
 
 /* ====================================================================== */
 /* MUSCLE HEATMAP — body-map engine                                       */
@@ -24,18 +16,8 @@ export const VOLUME_LANDMARKS = {
 
 
 export const HEATMAP_REGIONS = ["Chest", "Shoulders", "Triceps", "Biceps", "UpperBack", "Lats", "Traps", "LowerBack", "Core", "Glutes", "Quads", "Hamstrings", "Calves"];
-// Weekly hard-set landmarks per muscle, in the spirit of "productive volume" rather than
-// literature MEV/MAV/MRV taken as hard physiological limits (they aren't — there's no
-// single number where a muscle stops responding). These are deliberately conservative:
-// ~8-14 sets/week productive, ~14-20 high-but-common, 20+ increasingly individual. Smaller
-// muscles are scaled down proportionally rather than sharing the same range as Back/Legs.
-
-
-export const HEATMAP_LANDMARKS = {
-  Chest: [6, 10, 16], Shoulders: [6, 10, 16], Triceps: [5, 8, 13], Biceps: [5, 8, 13],
-  UpperBack: [5, 9, 14], Lats: [5, 9, 14], Traps: [4, 7, 11], LowerBack: [3, 6, 10], Core: [4, 8, 13],
-  Glutes: [4, 8, 13], Quads: [6, 10, 16], Hamstrings: [5, 9, 14], Calves: [5, 9, 14],
-};
+// Per-region landmarks now come from lib/landmarks.js (via REGION_TO_MUSCLE), the single
+// shared, user-editable source of truth also used by the Exercises tab's volume bars.
 // Separate, directly-authored ranges for the broad Training Distribution groups (Chest/Back/
 // Legs/Shoulders/Arms/Core). These are NOT a sum of the sub-region numbers above — summing
 // 4 back sub-regions' landmarks previously produced a "22-56 sets" range, which reads as an
@@ -104,10 +86,10 @@ export function heatmapStatus(perWeek, landmarks) {
 export const HEATMAP_STATUS_COLOR = { gray: "#5E6168", green: "#22C55E", yellow: "#FACC15", red: "#EF4444" };
 
 
-export const HEATMAP_STATUS_LABEL = { gray: "Untargeted", green: "Building volume", yellow: "Productive volume", red: "High volume" };
+export const HEATMAP_STATUS_LABEL = { gray: "Below MEV", green: "MEV", yellow: "MAV", red: "Above MRV" };
 
 
-export const HEATMAP_STATUS_SHORT = { gray: "—", green: "Building", yellow: "Productive", red: "High" };
+export const HEATMAP_STATUS_SHORT = { gray: "—", green: "MEV", yellow: "MAV", red: "MRV+" };
 
 
 export const HEATMAP_DISPLAY_NAME = {

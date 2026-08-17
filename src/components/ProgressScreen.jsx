@@ -5,12 +5,13 @@ import { MuscleHeatmap } from "./MuscleHeatmap";
 import { Sparkline } from "./atoms";
 import { ACCENT, C, CARD_SHADOW } from "../lib/constants";
 import { MUSCLE_ORDER } from "../lib/exerciseLibrary";
-import { HEATMAP_LANDMARKS, HEATMAP_REGIONS, RANGE_OPTS, VOLUME_LANDMARKS, heatmapStatus, regionContributionsFor } from "../lib/heatmapData";
+import { HEATMAP_REGIONS, RANGE_OPTS, heatmapStatus, regionContributionsFor } from "../lib/heatmapData";
 import { withinDays } from "../lib/insights";
+import { REGION_TO_MUSCLE, resolveLandmarks } from "../lib/landmarks";
 import { muscleForLift, normalizeLiftName } from "../lib/muscleMapping";
 import { sessionVolume } from "../lib/sessionUtils";
 
-export function ProgressScreen({ sessions, bodyWeight }) {
+export function ProgressScreen({ sessions, bodyWeight, landmarkOverrides }) {
   const [rangeDays, setRangeDays] = useState(30); // default 1M
   const [expandedId, setExpandedId] = useState(null);
   const [selectedPoint, setSelectedPoint] = useState(null); // {key, date, note}
@@ -18,6 +19,8 @@ export function ProgressScreen({ sessions, bodyWeight }) {
   const [collapsed, setCollapsed] = useState({}); // muscle -> bool
   const [showInfo, setShowInfo] = useState(false);
   const [viewMode, setViewMode] = useState("exercise"); // "exercise" | "load"
+
+  const landmarks = useMemo(() => resolveLandmarks(landmarkOverrides), [landmarkOverrides]);
 
   const scoped = useMemo(() => sessions.filter(s => withinDays(s.date, rangeDays)), [sessions, rangeDays]);
 
@@ -82,7 +85,7 @@ export function ProgressScreen({ sessions, bodyWeight }) {
       const sets = cur.setCount[region] || 0;
       const prevSets = prev.setCount[region] || 0;
       const perWeek = sets / weeks;
-      const lm = HEATMAP_LANDMARKS[region];
+      const lm = landmarks[REGION_TO_MUSCLE[region]];
       // MEV/MAV/MRV/Untargeted — this region's weekly-average volume vs its own landmarks.
       const status = heatmapStatus(perWeek, lm);
       const daysAgo = cur.lastHit[region] ? Math.floor((now - cur.lastHit[region]) / 86400000) : null;
@@ -93,7 +96,7 @@ export function ProgressScreen({ sessions, bodyWeight }) {
       byRegion[region] = { region, sets, perWeek, status, landmarks: lm, daysAgo, topExercises: top, freqPerWeek, trendPct };
     }
     return byRegion;
-  }, [scoped, sessions, rangeDays, effectiveWeeks]);
+  }, [scoped, sessions, rangeDays, effectiveWeeks, landmarks]);
 
   const loadByDay = useMemo(() => {
     const byDay = {};
@@ -176,9 +179,9 @@ export function ProgressScreen({ sessions, bodyWeight }) {
         </div>
         {showInfo && (
           <div className="rounded-xl p-3 mb-3 text-[12px] leading-relaxed" style={{ backgroundColor: C.accentSoft, color: C.accentInk }}>
-            <div className="mb-1"><b>Building</b> — below the range most lifters need to see consistent growth. Room to add sets.</div>
-            <div className="mb-1"><b>Productive</b> — a reasonable, commonly effective weekly range for hypertrophy in most lifters.</div>
-            <div><b>High</b> — more volume than typical. Can still be productive if your recovery and performance hold up — these ranges are starting points, not hard limits specific to you.</div>
+            <div className="mb-1"><b>MEV</b> — Minimum Effective Volume: the least weekly sets most lifters need to see consistent growth.</div>
+            <div className="mb-1"><b>MAV</b> — Maximum Adaptive Volume: the sweet spot, a commonly effective weekly range for hypertrophy.</div>
+            <div><b>MRV</b> — Maximum Recoverable Volume: the ceiling before recovery starts to suffer. Can still be productive if your recovery and performance hold up — these are starting points, not hard limits specific to you. Edit them anytime from Profile.</div>
           </div>
         )}
         <div className="flex items-center gap-2 rounded-xl px-3 mb-3" style={{ backgroundColor: C.surface }}>
@@ -249,7 +252,7 @@ export function ProgressScreen({ sessions, bodyWeight }) {
         const slots = filteredGroups[muscle];
         const sessionCount = slots.reduce((a, s) => a + s.points.length, 0);
         const wv = weeklyVolume[muscle];
-        const landmarks = VOLUME_LANDMARKS[muscle];
+        const muscleLandmarks = landmarks[muscle];
         const isCollapsed = collapsed[muscle] && !q; // search overrides collapse
         return (
           <div key={muscle} className="mb-6">
@@ -262,17 +265,17 @@ export function ProgressScreen({ sessions, bodyWeight }) {
             </button>
             {!isCollapsed && <>
             {/* Volume landmark bar */}
-            {wv != null && landmarks && (
+            {wv != null && muscleLandmarks && (
               <div className="mb-2.5 rounded-xl p-2.5" style={{ backgroundColor: C.surface }}>
                 <div className="flex items-center justify-between mb-1.5">
                   <span className="text-[10px] uppercase tracking-wide font-semibold" style={{ color: C.ink3 }}>Weekly volume</span>
-                  <span className="text-[11px] font-semibold tabular-nums" style={{ color: vColor(wv, landmarks) }}>{wv.toFixed(1)} sets/wk · {vLabel(wv, landmarks)}</span>
+                  <span className="text-[11px] font-semibold tabular-nums" style={{ color: vColor(wv, muscleLandmarks) }}>{wv.toFixed(1)} sets/wk · {vLabel(wv, muscleLandmarks)}</span>
                 </div>
                 <div className="relative h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: C.border }}>
-                  <div className="absolute inset-y-0 left-0 rounded-full" style={{ width: `${Math.min(100, (wv / landmarks[2]) * 100)}%`, backgroundColor: vColor(wv, landmarks) }} />
+                  <div className="absolute inset-y-0 left-0 rounded-full" style={{ width: `${Math.min(100, (wv / muscleLandmarks[2]) * 100)}%`, backgroundColor: vColor(wv, muscleLandmarks) }} />
                 </div>
                 <div className="flex justify-between mt-1 text-[9px]" style={{ color: C.ink4 }}>
-                  <span>MEV {landmarks[0]}</span><span>MAV {landmarks[1]}</span><span>MRV {landmarks[2]}</span>
+                  <span>MEV {muscleLandmarks[0]}</span><span>MAV {muscleLandmarks[1]}</span><span>MRV {muscleLandmarks[2]}</span>
                 </div>
               </div>
             )}
@@ -340,7 +343,7 @@ export function ProgressScreen({ sessions, bodyWeight }) {
 }
 
 
-export function vLabel(v, [mev, mav, mrv]) { if (v < mev) return "below MEV"; if (v < mav) return "growth zone"; if (v <= mrv) return "high"; return "over MRV"; }
+export function vLabel(v, [mev, mav, mrv]) { if (v < mev) return "below MEV"; if (v < mav) return "MEV zone"; if (v <= mrv) return "MAV zone"; return "MRV+"; }
 
 
 export function vColor(v, [mev, mav, mrv]) { if (v < mev) return C.ink3; if (v < mav) return C.good; if (v <= mrv) return C.warn; return C.bad; }

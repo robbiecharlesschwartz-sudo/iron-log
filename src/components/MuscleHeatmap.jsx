@@ -94,7 +94,7 @@ export function MuscleHeatmap({ data, rangeDays, weeks }) {
             <div key={k} className="flex items-center gap-1.5">
               <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: HEATMAP_STATUS_COLOR[k] }} />
               <span className="text-[10.5px] font-semibold" style={{ color: "rgba(255,255,255,0.7)" }}>
-                {k === "red" ? "High" : k === "yellow" ? "Productive" : k === "green" ? "Building" : "Untargeted"}
+                {k === "red" ? "MRV+" : k === "yellow" ? "MAV" : k === "green" ? "MEV" : "Untargeted"}
               </span>
             </div>
           ))}
@@ -182,10 +182,10 @@ export function MuscleHeatmap({ data, rangeDays, weeks }) {
       {/* Explanatory legend — what each status actually means */}
       <div className="grid grid-cols-2 gap-2.5 mb-6">
         {[
-          { k: "green", title: "Building", sub: "", body: "Below what most lifters need for consistent growth. Room to add sets." },
-          { k: "yellow", title: "Productive", sub: "", body: "A reasonable, commonly effective weekly range for hypertrophy." },
-          { k: "red", title: "High", sub: "", body: "Higher volume. Can work well if recovery keeps up — not a hard ceiling." },
-          { k: "gray", title: "Untargeted", sub: "", body: "Not enough direct work for this muscle group." },
+          { k: "green", title: "MEV", sub: "", body: "Minimum Effective Volume — enough to grow, but there's room to add sets." },
+          { k: "yellow", title: "MAV", sub: "", body: "Maximum Adaptive Volume — the sweet spot for hypertrophy." },
+          { k: "red", title: "MRV+", sub: "", body: "At or above Maximum Recoverable Volume. Can work well if recovery keeps up — not a hard ceiling." },
+          { k: "gray", title: "Untargeted", sub: "", body: "Below MEV — not enough direct work for this muscle group yet." },
         ].map((item) => (
           <div key={item.k} className="rounded-xl p-3" style={{ backgroundColor: C.surface }}>
             <div className="flex items-center gap-1.5 mb-1">

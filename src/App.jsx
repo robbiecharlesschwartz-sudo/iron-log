@@ -12,7 +12,7 @@ import { ProfileScreen } from "./components/ProfileScreen";
 import { ProgressScreen } from "./components/ProgressScreen";
 import { SummaryScreen, WorkoutScreen } from "./components/WorkoutScreen";
 import { Logo } from "./components/atoms";
-import { ACTIVE_KEY, ADDS_KEY, C, CUSTOM_EX_KEY, CUSTOM_KEY, FONT, ONBOARD_KEY, PLAN_INIT_KEY, PROFILE_KEY, SESS_KEY, SPECIAL_ROBBIE_EMAIL } from "./lib/constants";
+import { ACTIVE_KEY, ADDS_KEY, C, CUSTOM_EX_KEY, CUSTOM_KEY, FONT, LANDMARKS_KEY, ONBOARD_KEY, PLAN_INIT_KEY, PROFILE_KEY, SESS_KEY, SPECIAL_ROBBIE_EMAIL } from "./lib/constants";
 import { WORKOUT_DAYS, templateDaysFromBuiltIn } from "./lib/exerciseLibrary";
 import { FB_ENABLED, fbDeleteSession, fbLoadData, fbLoadSessions, fbSaveData, fbSaveSession, mergeSessions, useAuth } from "./lib/firebase";
 import { ROTATION, generateInsights, recommendNextDay } from "./lib/insights";
@@ -28,6 +28,7 @@ export default function IronLog() {
   const [customDays, setCustomDays] = useState([]);
   const [dayAdds, setDayAdds] = useState({});
   const [customExercises, setCustomExercises] = useState([]); // user-created exercises, persisted for future search/add
+  const [landmarkOverrides, setLandmarkOverrides] = useState({}); // user-customized MEV/MAV/MRV per muscle group
   const [active, setActive] = useState(null);
   const [selectedDay, setSelectedDay] = useState(null);
   const [addTargetDay, setAddTargetDay] = useState(null);
@@ -53,21 +54,22 @@ export default function IronLog() {
 
   // ── Load data for current auth state (guest or specific account) ────────
   async function loadAllFor(u) {
-    const sk = keyFor(SESS_KEY, u), ck = keyFor(CUSTOM_KEY, u), ak = keyFor(ADDS_KEY, u), pk = keyFor(PROFILE_KEY, u), plk = keyFor(PLAN_INIT_KEY, u), cek = keyFor(CUSTOM_EX_KEY, u);
-    let sess = [], custom = [], adds = {}, prof = { firstName: "", lastName: "", bodyWeight: null }, planInit = false, customEx = [];
+    const sk = keyFor(SESS_KEY, u), ck = keyFor(CUSTOM_KEY, u), ak = keyFor(ADDS_KEY, u), pk = keyFor(PROFILE_KEY, u), plk = keyFor(PLAN_INIT_KEY, u), cek = keyFor(CUSTOM_EX_KEY, u), lmk = keyFor(LANDMARKS_KEY, u);
+    let sess = [], custom = [], adds = {}, prof = { firstName: "", lastName: "", bodyWeight: null }, planInit = false, customEx = [], landmarks = {};
     try { const r = await window.storage.get(sk); sess = r ? JSON.parse(r.value).map(migrateSession) : []; } catch {}
     try { const r = await window.storage.get(ck); custom = r ? JSON.parse(r.value) : []; } catch {}
     try { const r = await window.storage.get(ak); adds = r ? JSON.parse(r.value) : {}; } catch {}
     try { const r = await window.storage.get(pk); prof = r ? JSON.parse(r.value) : prof; } catch {}
     try { await window.storage.get(plk); planInit = true; } catch {}
     try { const r = await window.storage.get(cek); customEx = r ? JSON.parse(r.value) : []; } catch {}
-    return { sess, custom, adds, prof, planInit, customEx };
+    try { const r = await window.storage.get(lmk); landmarks = r ? JSON.parse(r.value) : {}; } catch {}
+    return { sess, custom, adds, prof, planInit, customEx, landmarks };
   }
 
   // ── Initial load (guest/local) ──────────────────────────────────────────
   useEffect(() => {
     (async () => {
-      const { sess, custom, adds, prof, planInit, customEx } = await loadAllFor(null);
+      const { sess, custom, adds, prof, planInit, customEx, landmarks } = await loadAllFor(null);
       const repaired = repairLegacyDayIds(sess, custom, adds, ROTATION);
       const [rSess, rCustom, rAdds] = repaired.changed ? [repaired.sessions, repaired.customDays, repaired.dayAdds] : [sess, custom, adds];
       if (repaired.changed) {
@@ -75,7 +77,7 @@ export default function IronLog() {
         window.storage.set(CUSTOM_KEY, JSON.stringify(rCustom)).catch(() => {});
         window.storage.set(ADDS_KEY, JSON.stringify(rAdds)).catch(() => {});
       }
-      setSessions(rSess); setCustomDays(rCustom); setDayAdds(rAdds); setProfile(prof); setPlanInitialized(planInit); setCustomExercises(customEx); setHasLocalData(rSess.length > 0);
+      setSessions(rSess); setCustomDays(rCustom); setDayAdds(rAdds); setProfile(prof); setPlanInitialized(planInit); setCustomExercises(customEx); setLandmarkOverrides(landmarks); setHasLocalData(rSess.length > 0);
       try { const r = await window.storage.get(ACTIVE_KEY); setActive(r ? JSON.parse(r.value) : null); } catch {}
       if (FB_ENABLED) { try { await window.storage.get(ONBOARD_KEY); } catch { setShowAuth(true); } }
       setReady(true);
@@ -94,7 +96,7 @@ export default function IronLog() {
     (async () => {
       if (!u) {
         // Logged out (or initial guest load) → reload guest local data
-        const { sess, custom, adds, prof, planInit, customEx } = await loadAllFor(null);
+        const { sess, custom, adds, prof, planInit, customEx, landmarks } = await loadAllFor(null);
         const repaired = repairLegacyDayIds(sess, custom, adds, ROTATION);
         const [rSess, rCustom, rAdds] = repaired.changed ? [repaired.sessions, repaired.customDays, repaired.dayAdds] : [sess, custom, adds];
         if (repaired.changed) {
@@ -102,7 +104,7 @@ export default function IronLog() {
           window.storage.set(CUSTOM_KEY, JSON.stringify(rCustom)).catch(() => {});
           window.storage.set(ADDS_KEY, JSON.stringify(rAdds)).catch(() => {});
         }
-        setSessions(rSess); setCustomDays(rCustom); setDayAdds(rAdds); setProfile(prof); setPlanInitialized(planInit); setCustomExercises(customEx);
+        setSessions(rSess); setCustomDays(rCustom); setDayAdds(rAdds); setProfile(prof); setPlanInitialized(planInit); setCustomExercises(customEx); setLandmarkOverrides(landmarks);
         // Only clear active workout if user was actually logged in before (not initial auth resolution)
         if (prevUid) setActive(null);
         setSyncStatus("offline"); setScreen("home");
@@ -111,7 +113,7 @@ export default function IronLog() {
       // Logged in → load this account's local data, then merge cloud
       setSyncStatus("syncing"); setSyncError(null);
       const local = await loadAllFor(u);
-      setSessions(local.sess); setCustomDays(local.custom); setDayAdds(local.adds); setProfile(local.prof); setPlanInitialized(local.planInit); setCustomExercises(local.customEx || []);
+      setSessions(local.sess); setCustomDays(local.custom); setDayAdds(local.adds); setProfile(local.prof); setPlanInitialized(local.planInit); setCustomExercises(local.customEx || []); setLandmarkOverrides(local.landmarks || {});
 
       const onboardKey = `${ONBOARD_KEY}-${u.uid}`;
       const planInitKey = keyFor(PLAN_INIT_KEY, u);
@@ -121,8 +123,8 @@ export default function IronLog() {
       // needs to see that before deciding whether to show onboarding again.
       let merged = { custom: local.custom, sess: local.sess, prof: local.prof, planInit: local.planInit, adds: local.adds };
       try {
-        const [cloudSessions, cloudCustomDays, cloudDayAdds, cloudProfile, cloudPlanInit, cloudCustomEx] = await Promise.all([
-          fbLoadSessions(u.uid), fbLoadData(u.uid, "customDays"), fbLoadData(u.uid, "dayAdds"), fbLoadData(u.uid, "profile"), fbLoadData(u.uid, "planInitialized"), fbLoadData(u.uid, "customExercises")
+        const [cloudSessions, cloudCustomDays, cloudDayAdds, cloudProfile, cloudPlanInit, cloudCustomEx, cloudLandmarks] = await Promise.all([
+          fbLoadSessions(u.uid), fbLoadData(u.uid, "customDays"), fbLoadData(u.uid, "dayAdds"), fbLoadData(u.uid, "profile"), fbLoadData(u.uid, "planInitialized"), fbLoadData(u.uid, "customExercises"), fbLoadData(u.uid, "landmarks")
         ]);
         const mergedSessions = mergeSessions(local.sess, cloudSessions || []);
         setSessions(mergedSessions); window.storage.set(keyFor(SESS_KEY, u), JSON.stringify(mergedSessions)).catch(() => {});
@@ -144,6 +146,8 @@ export default function IronLog() {
         if (cloudPlanInit) { window.storage.set(planInitKey, "1").catch(() => {}); merged.planInit = true; }
         if (cloudCustomEx && cloudCustomEx.length) { setCustomExercises(cloudCustomEx); window.storage.set(keyFor(CUSTOM_EX_KEY, u), JSON.stringify(cloudCustomEx)).catch(() => {}); }
         else if (local.customEx && local.customEx.length) { pushResults.push(await fbSaveData(u.uid, "customExercises", local.customEx)); }
+        if (cloudLandmarks && Object.keys(cloudLandmarks).length) { setLandmarkOverrides(cloudLandmarks); window.storage.set(keyFor(LANDMARKS_KEY, u), JSON.stringify(cloudLandmarks)).catch(() => {}); }
+        else if (local.landmarks && Object.keys(local.landmarks).length) { pushResults.push(await fbSaveData(u.uid, "landmarks", local.landmarks)); }
         const pushFailed = pushResults.find((r) => r && r.ok === false);
         if (pushFailed) { setSyncStatus("failed"); setSyncError(pushFailed.error); }
         else { setSyncStatus("synced"); setSyncError(null); setLastSyncedAt(Date.now()); }
@@ -228,6 +232,12 @@ export default function IronLog() {
     setProfile(np);
     window.storage.set(keyFor(PROFILE_KEY, auth.user), JSON.stringify(np)).catch(() => {});
     if (uid) fbSaveData(uid, "profile", np).then(reportSyncResult);
+  }
+
+  function handleUpdateLandmarks(next) {
+    setLandmarkOverrides(next);
+    window.storage.set(keyFor(LANDMARKS_KEY, auth.user), JSON.stringify(next)).catch(() => {});
+    if (uid) fbSaveData(uid, "landmarks", next).then(reportSyncResult);
   }
 
   function handleUpdateName(first, last) {
@@ -587,10 +597,10 @@ export default function IronLog() {
         {screen === "addexercise" && liveAddTargetDay && <AddExerciseScreen day={liveAddTargetDay} onAdd={handleConfirmAdd} onBack={() => setScreen(addReturnTo)} customExercises={customExercises} />}
         {screen === "calendar" && <CalendarScreen sessions={sessions} onOpenDay={openCalendarDay} />}
         {screen === "daydetail" && calendarDay && <DayDetailScreen daySessions={calendarDay.daySessions} date={calendarDay.date} onBack={() => setScreen("calendar")} />}
-        {screen === "progress" && <ProgressScreen sessions={sessions} bodyWeight={profile.bodyWeight} />}
+        {screen === "progress" && <ProgressScreen sessions={sessions} bodyWeight={profile.bodyWeight} landmarkOverrides={landmarkOverrides} />}
         {screen === "history" && <HistoryScreen sessions={sessions} onDeleteSessions={handleDeleteSessions} onContinue={handleContinueWorkout} onMerge={handleMergeSessions} onEdit={(s) => { setEditingSession(s); setScreen("editsession"); }} />}
         {screen === "editsession" && editingSession && <EditSessionScreen session={editingSession} onSave={handleSaveEditedSession} onBack={() => { setEditingSession(null); setScreen("history"); }} onDelete={(id) => { handleDeleteSessions([id]); setEditingSession(null); setScreen("history"); }} />}
-        {screen === "profile" && <ProfileScreen sessions={sessions} customDays={customDays} dayAdds={dayAdds} user={auth.user} auth={auth} syncStatus={syncStatus} syncError={syncError} lastSyncedAt={lastSyncedAt} onForceSync={handleForceSync} profileName={profileName} firstName={profile.firstName} lastName={profile.lastName} onUpdateName={handleUpdateName} bodyWeight={profile.bodyWeight} onUpdateBodyWeight={handleUpdateBodyWeight} />}
+        {screen === "profile" && <ProfileScreen sessions={sessions} customDays={customDays} dayAdds={dayAdds} user={auth.user} auth={auth} syncStatus={syncStatus} syncError={syncError} lastSyncedAt={lastSyncedAt} onForceSync={handleForceSync} profileName={profileName} firstName={profile.firstName} lastName={profile.lastName} onUpdateName={handleUpdateName} bodyWeight={profile.bodyWeight} onUpdateBodyWeight={handleUpdateBodyWeight} landmarkOverrides={landmarkOverrides} onUpdateLandmarks={handleUpdateLandmarks} />}
         {screen === "coach" && <CoachScreen insights={insights} nextDay={nextDay} onBack={() => setScreen("home")} onStartNext={handleSelectDay} profileName={profileName} />}
         {screen === "workout" && active && <WorkoutScreen active={active} setActive={setActive} sessions={sessions} persistActive={persistActive} onFinish={handleFinish} onExit={() => setScreen("home")} onAddExercise={handleAddExerciseFromWorkout} onDiscard={handleDiscardActive} />}
         {screen === "newday" && <NewDayScreen onSave={handleSaveNewDay} onCancel={() => setScreen("home")} customExercises={customExercises} onNewCustomExercise={handleNewCustomExercise} />}
