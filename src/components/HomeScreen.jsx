@@ -1,12 +1,12 @@
 import { useMemo, useState } from "react";
-import { ArrowLeft, ArrowUpRight, ChevronRight, Play, Plus, RefreshCw, Sparkles, Trash2 } from "lucide-react";
+import { ArrowLeft, ArrowUpRight, ChevronRight, Play, Plus, RefreshCw, Search, Sparkles, Trash2 } from "lucide-react";
 import { CatTag, InsightCard, Logo, SwipeableCard } from "./atoms";
 import { C, CARD_SHADOW } from "../lib/constants";
 import { WORKOUT_TEMPLATES } from "../lib/exerciseLibrary";
 import { computeStreak, estDurationMin, lastSessionForDay, weekStats } from "../lib/insights";
 import { dayAccentColor, relativeDays } from "../lib/sessionUtils";
 
-export function HomeScreen({ sessions, activeSession, days, onSelectDay, onResume, onDiscard, onNewDay, onOpenCoach, insights, nextDay, onDeleteDay, onDuplicateDay, onChangePlan }) {
+export function HomeScreen({ sessions, activeSession, days, onSelectDay, onResume, onDiscard, onNewDay, onOpenCoach, onOpenLibrary, insights, nextDay, onDeleteDay, onDuplicateDay, onChangePlan }) {
   const wk = useMemo(() => weekStats(sessions), [sessions]);
   const streak = useMemo(() => computeStreak(sessions), [sessions]);
   const last = sessions[0];
@@ -20,6 +20,9 @@ export function HomeScreen({ sessions, activeSession, days, onSelectDay, onResum
         <div className="flex-1">
           <div className="text-[19px] font-bold tracking-tight leading-none" style={{ color: C.ink }}>Iron Log</div>
         </div>
+        <button onClick={onOpenLibrary} className="p-2 rounded-full" style={{ backgroundColor: C.surface }} aria-label="Library">
+          <Search size={16} style={{ color: C.ink2 }} />
+        </button>
         <button onClick={onOpenCoach} className="flex items-center gap-1.5 px-3 py-2 rounded-full" style={{ backgroundColor: C.accentSoft }}>
           <Sparkles size={14} style={{ color: C.accent }} />
           <span className="text-[12px] font-semibold" style={{ color: C.accentInk }}>Coach</span>

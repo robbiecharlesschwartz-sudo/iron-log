@@ -66,6 +66,7 @@ export const PLAN_INIT_KEY = "iron-log-plan-initialized";
 
 export const INSTALL_DISMISS_KEY = "iron-log-install-dismissed";
 export const LANDMARKS_KEY = "iron-log-landmarks-v1";
+export const SIDE_DAYS_KEY = "iron-log-side-days-v1";
 
 // ── Rest-timer notification helpers ──────────────────────────────────────
 
