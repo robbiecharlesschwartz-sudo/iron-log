@@ -88,9 +88,13 @@ export const WORKOUT_TEMPLATES = [
 
 
 export function templateDaysFromBuiltIn() {
+  // IDs must stay exactly as WORKOUT_DAYS defines them (not randomized) — Progress's
+  // Load/day grouping, recommendNextDay's rotation lookup, and per-day session history
+  // all key off this id, and it must stay identical across every re-onboarding or
+  // plan-reselection so a day's history never gets orphaned from a freshly regenerated id.
   return WORKOUT_DAYS.map(day => ({
-    ...day, id: `${day.id}-${makeId()}`, custom: true,
-    exercises: day.exercises.map(e => ({ ...e, id: `${e.id}-${makeId()}` }))
+    ...day, custom: true,
+    exercises: day.exercises.map(e => ({ ...e }))
   }));
 }
 
