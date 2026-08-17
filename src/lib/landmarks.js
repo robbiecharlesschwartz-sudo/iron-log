@@ -17,12 +17,10 @@ export const DEFAULT_LANDMARKS = {
 
 export const MUSCLE_GROUPS = Object.keys(DEFAULT_LANDMARKS);
 
-// The Heatmap tab renders finer body-map regions than the landmark table tracks
-// (e.g. Back splits into Lats/Traps/UpperBack/LowerBack for the silhouette) — each
-// region borrows its parent muscle group's landmark.
+// The Heatmap tab's body-map regions map 1:1 onto these muscle groups now that Back
+// (lats, traps, upper and lower back) renders as a single combined region.
 export const REGION_TO_MUSCLE = {
-  Chest: "Chest", Shoulders: "Shoulders", Triceps: "Triceps", Biceps: "Biceps",
-  UpperBack: "Back", Lats: "Back", Traps: "Back", LowerBack: "Back",
+  Chest: "Chest", Shoulders: "Shoulders", Triceps: "Triceps", Biceps: "Biceps", Back: "Back",
   Core: "Core", Glutes: "Glutes", Quads: "Quads", Hamstrings: "Hamstrings", Calves: "Calves",
 };
 

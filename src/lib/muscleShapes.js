@@ -34,8 +34,8 @@ export function muscleBellyLean(cxTop, cxBot, topY, botY, topW, botW, bulge = 0.
 
 export const FRONT_SHAPES = [
   // Traps — split into left/right halves along the spine centerline
-  { id: "leftUpperTrap", region: "Traps", type: "path", d: "M100,58 L76,90 L88,138 L100,148 Z" },
-  { id: "rightUpperTrap", region: "Traps", type: "path", d: "M100,58 L124,90 L112,138 L100,148 Z" },
+  { id: "leftUpperTrap", region: "Back", type: "path", d: "M100,58 L76,90 L88,138 L100,148 Z" },
+  { id: "rightUpperTrap", region: "Back", type: "path", d: "M100,58 L124,90 L112,138 L100,148 Z" },
   // Deltoids — leans from a narrow point near the neck down to the true armpit width
   { id: "leftFrontDeltoid", region: "Shoulders", type: "path", d: muscleBellyLean(70, 59, 62, 98, 9, 13, 0.05) },
   { id: "rightFrontDeltoid", region: "Shoulders", type: "path", d: muscleBellyLean(130, 141, 62, 98, 9, 13, 0.05) },
@@ -67,19 +67,19 @@ export const FRONT_SHAPES = [
 
 export const BACK_SHAPES = [
   // Upper traps — split left/right along the spine
-  { id: "leftUpperTrapBack", region: "Traps", type: "path", d: "M100,58 L76,90 L88,138 L100,148 Z" },
-  { id: "rightUpperTrapBack", region: "Traps", type: "path", d: "M100,58 L124,90 L112,138 L100,148 Z" },
+  { id: "leftUpperTrapBack", region: "Back", type: "path", d: "M100,58 L76,90 L88,138 L100,148 Z" },
+  { id: "rightUpperTrapBack", region: "Back", type: "path", d: "M100,58 L124,90 L112,138 L100,148 Z" },
   // Rear delts — same lean-corrected arm geometry as the front view (same silhouette)
   { id: "leftRearDeltoid", region: "Shoulders", type: "path", d: muscleBellyLean(70, 59, 62, 98, 9, 13, 0.05) },
   { id: "rightRearDeltoid", region: "Shoulders", type: "path", d: muscleBellyLean(130, 141, 62, 98, 9, 13, 0.05) },
   // Upper back / rhomboids — sits flush against the traps, within the true torso width
-  { id: "leftUpperBack", region: "UpperBack", type: "path", d: "M76,92 C72,103 72,118 76,129 C79,136 85,139 91,136 L88,94 C85,91 80,90 76,92 Z" },
-  { id: "rightUpperBack", region: "UpperBack", type: "path", d: "M124,92 C128,103 128,118 124,129 C121,136 115,139 109,136 L112,94 C115,91 120,90 124,92 Z" },
+  { id: "leftUpperBack", region: "Back", type: "path", d: "M76,92 C72,103 72,118 76,129 C79,136 85,139 91,136 L88,94 C85,91 80,90 76,92 Z" },
+  { id: "rightUpperBack", region: "Back", type: "path", d: "M124,92 C128,103 128,118 124,129 C121,136 115,139 109,136 L112,94 C115,91 120,90 124,92 Z" },
   // Lats — wing flare tracking the torso's real boundary, narrower now that lower back is separate
-  { id: "leftLat", region: "Lats", type: "path", d: "M75,106 C67,120 65,138 68,153 C71,161 78,163 84,158 L85,110 C82,106 78,104 75,106 Z" },
-  { id: "rightLat", region: "Lats", type: "path", d: "M125,106 C133,120 135,138 132,153 C129,161 122,163 116,158 L115,110 C118,106 122,104 125,106 Z" },
+  { id: "leftLat", region: "Back", type: "path", d: "M75,106 C67,120 65,138 68,153 C71,161 78,163 84,158 L85,110 C82,106 78,104 75,106 Z" },
+  { id: "rightLat", region: "Back", type: "path", d: "M125,106 C133,120 135,138 132,153 C129,161 122,163 116,158 L115,110 C118,106 122,104 125,106 Z" },
   // Lower back / erector spinae — the strip below the lats, above the glutes
-  { id: "lowerBack", region: "LowerBack", type: "path", d: "M87,158 C83,162 80,168 80,175 L120,175 C120,168 117,162 113,158 Z" },
+  { id: "lowerBack", region: "Back", type: "path", d: "M87,158 C83,162 80,168 80,175 L120,175 C120,168 117,162 113,158 Z" },
   // Triceps — upper arm; forearms are separate below
   { id: "leftTriceps", region: "Triceps", type: "path", d: muscleBellyLean(59, 50, 98, 155, 11, 9, 0) },
   { id: "rightTriceps", region: "Triceps", type: "path", d: muscleBellyLean(141, 150, 98, 155, 11, 9, 0) },

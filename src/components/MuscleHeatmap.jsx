@@ -56,7 +56,7 @@ export function MuscleHeatmap({ data, rangeDays, weeks }) {
     };
     return [
       groupOf("Chest", ["Chest"]),
-      groupOf("Back", ["UpperBack", "Lats", "Traps", "LowerBack"]),
+      groupOf("Back", ["Back"]),
       groupOf("Legs", ["Quads", "Hamstrings", "Glutes", "Calves"]),
       groupOf("Shoulders", ["Shoulders"]),
       groupOf("Arms", ["Biceps", "Triceps"]),

@@ -5,17 +5,18 @@ export const RANGE_OPTS = [["1W", 7], ["1M", 30], ["6M", 182], ["All Time", 1000
 /* ====================================================================== */
 /* MUSCLE HEATMAP — body-map engine                                       */
 /* The app's exercise library tags each lift with ONE primary "muscle"
-   category (e.g. "Back"). The heatmap wants finer regions (Lats, Upper
-   Back, Traps) plus secondary-muscle spillover (e.g. Bench Press also
-   loads Shoulders/Triceps a bit). Rather than hand-tagging 200+ exercises
-   with exact secondary muscles, we use a documented heuristic: each library
-   category maps to one or more heatmap regions with primary/secondary
-   weights, and "Back" is further split by name keywords (row vs pulldown
-   vs shrug vs deadlift-pattern). This is an approximation, not exact
-   biomechanics — good enough for "at a glance" body-map coloring. */
+   category (e.g. "Back"). The heatmap wants secondary-muscle spillover too
+   (e.g. Bench Press also loads Shoulders/Triceps a bit). Rather than
+   hand-tagging 200+ exercises with exact secondary muscles, we use a
+   documented heuristic: each library category maps to one or more heatmap
+   regions with primary/secondary weights. Back is tracked as a single
+   region — lats, traps, upper and lower back all light up together as one
+   unit, matching how a "back day" is actually programmed and felt, rather
+   than as four separately-classified sub-regions. This is an approximation,
+   not exact biomechanics — good enough for "at a glance" body-map coloring. */
 
 
-export const HEATMAP_REGIONS = ["Chest", "Shoulders", "Triceps", "Biceps", "UpperBack", "Lats", "Traps", "LowerBack", "Core", "Glutes", "Quads", "Hamstrings", "Calves"];
+export const HEATMAP_REGIONS = ["Chest", "Shoulders", "Triceps", "Biceps", "Back", "Core", "Glutes", "Quads", "Hamstrings", "Calves"];
 // Per-region landmarks now come from lib/landmarks.js (via REGION_TO_MUSCLE), the single
 // shared, user-editable source of truth also used by the Exercises tab's volume bars.
 // Separate, directly-authored ranges for the broad Training Distribution groups (Chest/Back/
@@ -28,20 +29,23 @@ export const BROAD_GROUP_LANDMARKS = {
   Chest: [6, 10, 16], Back: [8, 14, 20], Legs: [10, 16, 24],
   Shoulders: [6, 10, 16], Arms: [8, 14, 20], Core: [4, 8, 14],
 };
-// Classify a "Back"-category exercise into its dominant back sub-regions by name.
+// Classify a "Back"-category exercise's secondary-muscle spillover by name. The back
+// contribution itself always goes to the single combined "Back" region — only the
+// weight (how primary vs. incidental this movement is for back) and any spillover to
+// other muscle groups (biceps on rows/pulldowns, glutes/hamstrings on deadlifts) vary.
 
 
 export function classifyBackExercise(name) {
   const n = (name || "").toLowerCase();
-  if (n.includes("shrug")) return [["Traps", 1], ["UpperBack", 0.2]];
+  if (n.includes("shrug")) return [["Back", 1]];
   if (n.includes("pulldown") || n.includes("pull-up") || n.includes("pullup") || n.includes("chin-up") || n.includes("chin up"))
-    return [["Lats", 1], ["Biceps", 0.3]];
+    return [["Back", 1], ["Biceps", 0.3]];
   if (n.includes("face pull") || n.includes("rear delt") || n.includes("reverse fly") || n.includes("reverse pec"))
-    return [["Shoulders", 0.8], ["UpperBack", 0.4]];
+    return [["Shoulders", 0.8], ["Back", 0.4]];
   if (n.includes("deadlift") || n.includes("rack pull") || n.includes("good morning") || n.includes("hyperextension"))
-    return [["LowerBack", 1], ["Glutes", 0.5], ["Hamstrings", 0.3]];
-  if (n.includes("row")) return [["UpperBack", 0.7], ["Lats", 0.5], ["Biceps", 0.3]];
-  return [["UpperBack", 0.6], ["Lats", 0.6]]; // generic back movement fallback
+    return [["Back", 1], ["Glutes", 0.5], ["Hamstrings", 0.3]];
+  if (n.includes("row")) return [["Back", 0.7], ["Biceps", 0.3]];
+  return [["Back", 0.6]]; // generic back movement fallback
 }
 // Map a logged exercise to weighted heatmap-region contributions per set.
 
@@ -94,8 +98,7 @@ export const HEATMAP_STATUS_SHORT = { gray: "—", green: "MEV", yellow: "MAV", 
 
 export const HEATMAP_DISPLAY_NAME = {
   Chest: "Chest", Shoulders: "Shoulders", Triceps: "Triceps", Biceps: "Biceps",
-  UpperBack: "Upper Back", Lats: "Lats", Traps: "Traps", LowerBack: "Lower Back", Core: "Core",
-  Glutes: "Glutes", Quads: "Quads", Hamstrings: "Hamstrings", Calves: "Calves",
+  Back: "Back", Core: "Core", Glutes: "Glutes", Quads: "Quads", Hamstrings: "Hamstrings", Calves: "Calves",
 };
 // Recovery fade: freshly-trained muscles render darker/duller; by ~96h they're back
 // to full brightness, signalling "ready to train again." Pure CSS filter, no re-render

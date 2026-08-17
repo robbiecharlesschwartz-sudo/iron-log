@@ -94,6 +94,9 @@ export function AddExerciseScreen({ day, onAdd, onBack, customExercises }) {
   const [showCustom, setShowCustom] = useState(false);
   const [customName, setCustomName] = useState("");
   const [customKind, setCustomKind] = useState("lifting");
+  const [customMuscle, setCustomMuscle] = useState(null); // null = use the auto-suggested muscle
+  const autoMuscle = autoMuscleForDay(day, customKind);
+  const effectiveMuscle = customMuscle || autoMuscle;
   const fullLibrary = useMemo(() => mergeLibrary(customExercises), [customExercises]);
   const results = useMemo(() => {
     const needle = q.trim().toLowerCase();
@@ -109,9 +112,8 @@ export function AddExerciseScreen({ day, onAdd, onBack, customExercises }) {
 
   function addCustom() {
     if (!customName.trim()) return;
-    const muscle = autoMuscleForDay(day, customKind);
-    onAdd(day.id, { name: customName.trim(), muscle, equipment: customKind === "cardio" ? "Cardio" : "Other", rest: 90, kind: customKind, isCustom: true });
-    setCustomName(""); setShowCustom(false); setCustomKind("lifting");
+    onAdd(day.id, { name: customName.trim(), muscle: effectiveMuscle, equipment: customKind === "cardio" ? "Cardio" : "Other", rest: 90, kind: customKind, isCustom: true });
+    setCustomName(""); setShowCustom(false); setCustomKind("lifting"); setCustomMuscle(null);
   }
 
   return (
@@ -168,6 +170,13 @@ export function AddExerciseScreen({ day, onAdd, onBack, customExercises }) {
               </button>
             </div>
             <div className="text-[11px]" style={{ color: C.ink4 }}>{customKind === "cardio" ? "Cardio is timed during the workout — no sets or reps." : "Weight lifting logs sets, reps, and weight."}</div>
+            <div className="text-[11px] uppercase tracking-wide font-semibold" style={{ color: C.ink3 }}>Muscle group</div>
+            <div className="flex gap-1.5 overflow-x-auto pb-1">
+              {MUSCLE_ORDER.map((m) => (
+                <button key={m} onClick={() => setCustomMuscle(m)} className="text-[12px] px-3 py-1.5 rounded-full font-semibold whitespace-nowrap shrink-0"
+                  style={{ backgroundColor: effectiveMuscle === m ? C.ink : C.bg, color: effectiveMuscle === m ? "#fff" : C.ink2, border: `1px solid ${effectiveMuscle === m ? C.ink : C.border2}` }}>{m}</button>
+              ))}
+            </div>
             <button onClick={addCustom} disabled={!customName.trim()} className="w-full py-2.5 rounded-xl text-[13px] font-semibold" style={{ backgroundColor: customName.trim() ? C.ink : C.border, color: customName.trim() ? "#fff" : C.ink3 }}>Add exercise</button>
           </div>
         ) : (
@@ -199,6 +208,9 @@ export function NewDayScreen({ onSave, onCancel, customExercises, onNewCustomExe
   const [customInput, setCustomInput] = useState(""); // for custom exercise name
   const [showCustomInput, setShowCustomInput] = useState(false);
   const [customKind, setCustomKind] = useState("lifting");
+  const [customMuscle, setCustomMuscle] = useState(null); // null = use the auto-suggested muscle
+  const autoCustomMuscle = customKind === "cardio" ? "Cardio" : (tag === "PUSH" ? "Chest" : tag === "PULL" ? "Back" : tag === "LEGS" ? "Quads" : "Other");
+  const effectiveCustomMuscle = customMuscle || autoCustomMuscle;
 
   const canSave = title.trim() && rows.some((r) => r.name.trim());
   const inputCls = "w-full rounded-xl px-3 py-2.5 text-[15px] outline-none";
@@ -224,10 +236,10 @@ export function NewDayScreen({ onSave, onCancel, customExercises, onNewCustomExe
   }
   function pickCustom() {
     if (!customInput.trim()) return;
-    const muscle = customKind === "cardio" ? "Cardio" : (tag === "PUSH" ? "Chest" : tag === "PULL" ? "Back" : tag === "LEGS" ? "Quads" : "Other");
+    const muscle = effectiveCustomMuscle;
     setRows((r) => r.map((x) => x.tempId === pickingFor ? { ...x, name: customInput.trim(), kind: customKind, section: muscle } : x));
     onNewCustomExercise && onNewCustomExercise({ name: customInput.trim(), muscle, equipment: customKind === "cardio" ? "Cardio" : "Other", rest: 90, kind: customKind, isCustom: true });
-    setPickingFor(null); setPickerQ(""); setPickerFilter("All"); setShowCustomInput(false); setCustomInput(""); setCustomKind("lifting");
+    setPickingFor(null); setPickerQ(""); setPickerFilter("All"); setShowCustomInput(false); setCustomInput(""); setCustomKind("lifting"); setCustomMuscle(null);
   }
 
   function handleSave() {
@@ -284,6 +296,13 @@ export function NewDayScreen({ onSave, onCancel, customExercises, onNewCustomExe
               <div className="flex gap-2">
                 <button onClick={() => setCustomKind("lifting")} className="flex-1 py-2 rounded-xl text-[12.5px] font-semibold flex items-center justify-center gap-1.5" style={{ backgroundColor: customKind === "lifting" ? C.ink : C.bg, color: customKind === "lifting" ? "#fff" : C.ink2, border: `1px solid ${customKind === "lifting" ? C.ink : C.border2}` }}><Dumbbell size={14} /> Weight lifting</button>
                 <button onClick={() => setCustomKind("cardio")} className="flex-1 py-2 rounded-xl text-[12.5px] font-semibold flex items-center justify-center gap-1.5" style={{ backgroundColor: customKind === "cardio" ? C.ink : C.bg, color: customKind === "cardio" ? "#fff" : C.ink2, border: `1px solid ${customKind === "cardio" ? C.ink : C.border2}` }}><Activity size={14} /> Cardio</button>
+              </div>
+              <div className="text-[11px] uppercase tracking-wide font-semibold" style={{ color: C.ink3 }}>Muscle group</div>
+              <div className="flex gap-1.5 overflow-x-auto pb-1">
+                {MUSCLE_ORDER.map((m) => (
+                  <button key={m} onClick={() => setCustomMuscle(m)} className="text-[12px] px-3 py-1.5 rounded-full font-semibold whitespace-nowrap shrink-0"
+                    style={{ backgroundColor: effectiveCustomMuscle === m ? C.ink : C.bg, color: effectiveCustomMuscle === m ? "#fff" : C.ink2, border: `1px solid ${effectiveCustomMuscle === m ? C.ink : C.border2}` }}>{m}</button>
+                ))}
               </div>
               <button onClick={pickCustom} disabled={!customInput.trim()} className="w-full py-2.5 rounded-xl text-[13px] font-semibold" style={{ backgroundColor: customInput.trim() ? C.ink : C.border, color: customInput.trim() ? "#fff" : C.ink3 }}>Add exercise</button>
             </div>
