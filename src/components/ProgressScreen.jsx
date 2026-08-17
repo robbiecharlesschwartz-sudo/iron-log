@@ -92,8 +92,12 @@ export function ProgressScreen({ sessions, bodyWeight, landmarkOverrides }) {
       const top = Object.entries(cur.exerciseSets[region] || {}).sort((a, b) => b[1] - a[1]).slice(0, 4).map(([name]) => name);
       const sessionCount = (cur.sessionDates[region] || new Set()).size;
       const freqPerWeek = sessionCount / weeks;
-      const trendPct = prevSets > 0 ? ((sets - prevSets) / prevSets) * 100 : (sets > 0 ? 100 : 0);
-      byRegion[region] = { region, sets, perWeek, status, landmarks: lm, daysAgo, topExercises: top, freqPerWeek, trendPct };
+      // "pct" only when there's a real prior-period number to compare against — with no
+      // prior sets, any current volume is a mathematically undefined "increase," not a
+      // real 100%, so that case is flagged "new" instead of faked as a round number.
+      const trendKind = prevSets > 0 ? "pct" : (sets > 0 ? "new" : "none");
+      const trendPct = prevSets > 0 ? ((sets - prevSets) / prevSets) * 100 : 0;
+      byRegion[region] = { region, sets, perWeek, status, landmarks: lm, daysAgo, topExercises: top, freqPerWeek, trendPct, trendKind };
     }
     return byRegion;
   }, [scoped, sessions, rangeDays, effectiveWeeks, landmarks]);

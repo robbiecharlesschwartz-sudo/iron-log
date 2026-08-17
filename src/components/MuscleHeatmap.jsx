@@ -138,10 +138,18 @@ export function MuscleHeatmap({ data, rangeDays, weeks }) {
             </div>
             <div className="text-right">
               <div className="text-[10.5px] uppercase tracking-wide font-semibold mb-0.5" style={{ color: C.ink3 }}>Trend</div>
-              <div className="text-[13.5px] font-semibold flex items-center gap-1 justify-end" style={{ color: sel.trendPct >= 0 ? C.good : C.bad }}>
-                {sel.trendPct >= 0 ? "↑" : "↓"} {Math.abs(Math.round(sel.trendPct))}%
-                <span className="text-[11px] font-normal" style={{ color: C.ink3 }}>vs prior</span>
-              </div>
+              {sel.trendKind === "pct" ? (
+                <div className="text-[13.5px] font-semibold flex items-center gap-1 justify-end" style={{ color: sel.trendPct >= 0 ? C.good : C.bad }}>
+                  {sel.trendPct >= 0 ? "↑" : "↓"} {Math.abs(Math.round(sel.trendPct))}%
+                  <span className="text-[11px] font-normal" style={{ color: C.ink3 }}>vs prior period</span>
+                </div>
+              ) : sel.trendKind === "new" ? (
+                <div className="text-[13.5px] font-semibold" style={{ color: C.ink3 }}>
+                  New <span className="text-[11px] font-normal">· no prior period to compare</span>
+                </div>
+              ) : (
+                <div className="text-[13.5px] font-semibold" style={{ color: C.ink4 }}>—</div>
+              )}
             </div>
           </div>
 
