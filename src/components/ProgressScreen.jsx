@@ -50,13 +50,6 @@ export function ProgressScreen({ sessions, bodyWeight, landmarkOverrides }) {
     const prevStart = now - windowMs * 2, prevEnd = now - windowMs;
     const prevSessions = sessions.filter(s => { const t = new Date(s.date).getTime(); return t >= prevStart && t < prevEnd; });
 
-    // Trailing 7 days, independent of whatever range is selected — MEV/MAV/MRV status is
-    // inherently a "this week" question. Averaging it over a longer selected range (1M/6M/
-    // All Time) would dilute a genuinely overtrained week into invisibility the moment
-    // you're not viewing exactly that week, which is misleading rather than more accurate.
-    const weekStart = now - 7 * 86400000;
-    const thisWeekSessions = sessions.filter(s => new Date(s.date).getTime() >= weekStart);
-
     function tally(sessionList) {
       const setCount = {}, primarySets = {}, secondarySets = {}, exerciseSets = {}, lastHit = {}, sessionDates = {};
       for (const s of sessionList) {
@@ -85,17 +78,17 @@ export function ProgressScreen({ sessions, bodyWeight, landmarkOverrides }) {
     }
     const cur = tally(scoped);
     const prev = tally(prevSessions);
-    const thisWeek = tally(thisWeekSessions);
     const weeks = effectiveWeeks;
 
     const byRegion = {};
     for (const region of HEATMAP_REGIONS) {
       const sets = cur.setCount[region] || 0;
       const prevSets = prev.setCount[region] || 0;
-      const perWeek = thisWeek.setCount[region] || 0; // trailing 7 days IS the weekly number already
+      const perWeek = sets / weeks;
       const lm = landmarks[REGION_TO_MUSCLE[region]];
-      // MEV/MAV/MRV/Untargeted — this region's actual current-week volume vs its own
-      // landmarks, regardless of which historical range is selected above.
+      // MEV/MAV/MRV/Untargeted — this region's weekly-average volume over the selected
+      // range vs its own landmarks. Same range and same numbers as Effective Sets and
+      // Training Distribution below, so the color always agrees with what's displayed.
       const status = heatmapStatus(perWeek, lm);
       const daysAgo = cur.lastHit[region] ? Math.floor((now - cur.lastHit[region]) / 86400000) : null;
       const top = Object.entries(cur.exerciseSets[region] || {}).sort((a, b) => b[1] - a[1]).slice(0, 4).map(([name]) => name);

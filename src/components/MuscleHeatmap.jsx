@@ -125,7 +125,7 @@ export function MuscleHeatmap({ data, rangeDays, weeks }) {
             <div>
               <div className="text-[20px] font-bold tabular-nums leading-none" style={{ color: C.ink }}>{sel.landmarks ? `${sel.landmarks[0]}–${sel.landmarks[2]}` : "—"}</div>
               <div className="text-[10.5px] uppercase tracking-wide font-semibold mt-1" style={{ color: C.ink3 }}>Weekly Range</div>
-              <div className="text-[11px] font-semibold mt-0.5" style={{ color: HEATMAP_STATUS_COLOR[sel.status] }}>{HEATMAP_STATUS_LABEL[sel.status]} this week</div>
+              <div className="text-[11px] font-semibold mt-0.5" style={{ color: HEATMAP_STATUS_COLOR[sel.status] }}>{HEATMAP_STATUS_LABEL[sel.status]}</div>
             </div>
           </div>
 
