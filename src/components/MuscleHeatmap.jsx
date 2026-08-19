@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { X } from "lucide-react";
 import { C } from "../lib/constants";
-import { BROAD_GROUP_LANDMARKS, HEATMAP_DISPLAY_NAME, HEATMAP_REGIONS, HEATMAP_STATUS_COLOR, HEATMAP_STATUS_LABEL, HEATMAP_STATUS_SHORT, recoveryFilter } from "../lib/heatmapData";
+import { BROAD_GROUP_LANDMARKS, HEATMAP_DISPLAY_NAME, HEATMAP_REGIONS, HEATMAP_STATUS_COLOR, HEATMAP_STATUS_LABEL, HEATMAP_STATUS_SHORT, heatmapStatus, recoveryFilter } from "../lib/heatmapData";
 import { BACK_SHAPES, FRONT_SHAPES, SILHOUETTE_PATH } from "../lib/muscleShapes";
 
 export function MusclePath({ shape, region, data, selected, onSelect }) {
@@ -40,19 +40,17 @@ export function MuscleHeatmap({ data, rangeDays, weeks }) {
 
   // Training Distribution — broad groups the user actually thinks in (Chest/Back/Legs/Shoulders/Arms/Core).
   // Each shows "Effective Sets (This Period)" against its combined weekly-recommended range,
-  // with the bar/number colored by the worst (highest-tier) status among its sub-regions.
+  // with the bar/number colored from that SAME combined total vs the SAME broad landmark —
+  // not from the worst individual sub-region — so the color always agrees with the number
+  // printed right next to it. (Checking sub-regions individually let a group's combined
+  // total sail past its own displayed MRV while every sub-region stayed under its own,
+  // smaller one — e.g. Arms showing "27 / 8–20" but colored yellow, not red.)
   const distGroups = useMemo(() => {
-    const worstStatus = (regions) => {
-      const order = { red: 3, yellow: 2, green: 1, gray: 0 };
-      let best = "gray";
-      for (const r of regions) { const s = data[r]?.status || "gray"; if (order[s] > order[best]) best = s; }
-      return best;
-    };
     const w = Math.max(1, weeks || 1);
     const groupOf = (label, regions) => {
       const periodSets = regions.reduce((a, r) => a + (data[r]?.sets || 0), 0);
       const lm = BROAD_GROUP_LANDMARKS[label] || [0, 0, 0];
-      return { label, regions, periodSets, min: Math.round(lm[0] * w), max: Math.round(lm[2] * w), status: worstStatus(regions) };
+      return { label, regions, periodSets, min: Math.round(lm[0] * w), max: Math.round(lm[2] * w), status: heatmapStatus(periodSets / w, lm) };
     };
     return [
       groupOf("Chest", ["Chest"]),
