@@ -1,9 +1,8 @@
 import { useMemo, useState } from "react";
-import { Activity, ArrowLeft, ArrowUpRight, Clock, Dumbbell, Plus, Search, Trash2, X } from "lucide-react";
-import { CatTag, EquipPill } from "./atoms";
-import { ACCENT, C } from "../lib/constants";
+import { Activity, ArrowLeft, Clock, Dumbbell, Plus, Search, X } from "lucide-react";
+import { EquipPill } from "./atoms";
+import { C } from "../lib/constants";
 import { EQUIPMENT_FILTERS, MUSCLE_ORDER, mergeLibrary } from "../lib/exerciseLibrary";
-import { estDurationMin } from "../lib/insights";
 import { lastPerformanceFor } from "../lib/sessionUtils";
 
 function CustomExerciseForm({ onCreate }) {
@@ -43,7 +42,7 @@ function CustomExerciseForm({ onCreate }) {
   );
 }
 
-function ExercisesTab({ sessions, customExercises, onNewCustomExercise }) {
+export function LibraryScreen({ sessions, customExercises, onBack, onNewCustomExercise }) {
   const [q, setQ] = useState("");
   const [filter, setFilter] = useState("All");
   const [openName, setOpenName] = useState(null);
@@ -63,7 +62,12 @@ function ExercisesTab({ sessions, customExercises, onNewCustomExercise }) {
   }, [q, filter, fullLibrary]);
 
   return (
-    <div>
+    <div className="px-5 pt-5 pb-32">
+      <div className="flex items-center gap-2 mb-5">
+        <button onClick={onBack} className="p-2 -ml-2 rounded-lg" aria-label="Back"><ArrowLeft size={20} style={{ color: C.ink2 }} /></button>
+        <h1 className="text-[20px] font-bold tracking-tight" style={{ color: C.ink }}>Library</h1>
+      </div>
+
       <div className="flex items-center gap-2 rounded-2xl px-3.5 py-3 mb-3" style={{ backgroundColor: C.surface }}>
         <Search size={17} style={{ color: C.ink3 }} />
         <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search exercises or muscle" className="flex-1 bg-transparent outline-none text-[15px]" style={{ color: C.ink }} />
@@ -124,107 +128,6 @@ function ExercisesTab({ sessions, customExercises, onNewCustomExercise }) {
           </button>
         )}
       </div>
-    </div>
-  );
-}
-
-function SideDayDetail({ day, onBack, onStart, onDelete }) {
-  const [confirmDelete, setConfirmDelete] = useState(false);
-  const accent = ACCENT[day.tag] || C.accent;
-  return (
-    <div>
-      <div className="flex items-center gap-2 mb-5">
-        <button onClick={onBack} className="p-2 -ml-2 rounded-lg" aria-label="Back"><ArrowLeft size={20} style={{ color: C.ink2 }} /></button>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
-            <h1 className="text-[20px] font-bold tracking-tight truncate" style={{ color: C.ink }}>{day.title}</h1>
-            <CatTag tag={day.tag} colorOverride={accent} />
-          </div>
-          {day.subtitle && <div className="text-[12.5px] mt-0.5" style={{ color: C.ink2 }}>{day.subtitle}</div>}
-        </div>
-      </div>
-      <div className="text-[12px] mb-4" style={{ color: C.ink3 }}>{day.exercises.length} exercises · ~{estDurationMin(day)} min</div>
-      <div className="flex flex-col gap-2 mb-6">
-        {day.exercises.map((e) => (
-          <div key={e.id} className="rounded-2xl p-3.5" style={{ backgroundColor: C.bg, border: `1px solid ${C.border}` }}>
-            {e.section && <div className="text-[10px] uppercase tracking-wide font-semibold mb-0.5" style={{ color: C.ink3 }}>{e.section}</div>}
-            <div className="text-[14px] font-semibold" style={{ color: C.ink }}>{e.best}</div>
-            <div className="text-[12px] tabular-nums mt-1" style={{ color: C.ink2 }}>{e.setsLabel} × {e.repsLabel} · rest {e.rest}s</div>
-          </div>
-        ))}
-      </div>
-      <button onClick={() => onStart(day)} className="w-full rounded-2xl py-4 text-[15px] font-semibold mb-3 flex items-center justify-center gap-2" style={{ backgroundColor: C.ink, color: "#fff" }}>
-        Start workout <ArrowUpRight size={17} />
-      </button>
-      {confirmDelete ? (
-        <div className="flex items-center justify-center gap-3 text-[12px]">
-          <span style={{ color: C.ink2 }}>Delete this side workout?</span>
-          <button onClick={() => onDelete(day.id)} className="font-semibold px-3 py-1.5 rounded-lg" style={{ backgroundColor: C.bad, color: "#fff" }}>Delete</button>
-          <button onClick={() => setConfirmDelete(false)} style={{ color: C.ink3 }}>Cancel</button>
-        </div>
-      ) : (
-        <button onClick={() => setConfirmDelete(true)} className="w-full text-center text-[12px] font-semibold" style={{ color: C.ink3 }}>Delete side workout</button>
-      )}
-    </div>
-  );
-}
-
-function SideWorkoutsTab({ sideDays, onNewSideDay, onStart, onDelete }) {
-  const [viewing, setViewing] = useState(null);
-  const day = viewing ? sideDays.find((d) => d.id === viewing) : null;
-
-  if (day) {
-    return <SideDayDetail day={day} onBack={() => setViewing(null)} onStart={onStart} onDelete={(id) => { onDelete(id); setViewing(null); }} />;
-  }
-
-  return (
-    <div>
-      <p className="text-[12.5px] mb-4" style={{ color: C.ink3 }}>Saved workouts that live outside your training plan — try something once without touching your rotation, or keep a stash of one-off days.</p>
-      {sideDays.length === 0 ? (
-        <div className="text-center py-10 text-[14px]" style={{ color: C.ink3 }}>No side workouts yet.</div>
-      ) : (
-        <div className="flex flex-col gap-2 mb-4">
-          {sideDays.map((d) => {
-            const accent = ACCENT[d.tag] || C.accent;
-            return (
-              <button key={d.id} onClick={() => setViewing(d.id)} className="rounded-2xl text-left p-4 flex items-center gap-3.5 w-full" style={{ backgroundColor: C.bg, border: `1px solid ${C.border}` }}>
-                <div className="w-1 self-stretch rounded-full shrink-0" style={{ backgroundColor: accent }} />
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-0.5">
-                    <span className="text-[15px] font-semibold tracking-tight" style={{ color: C.ink }}>{d.title}</span>
-                    <CatTag tag={d.tag} colorOverride={accent} />
-                  </div>
-                  <div className="text-[12px]" style={{ color: C.ink3 }}>{d.exercises.length} exercises · ~{estDurationMin(d)} min</div>
-                </div>
-              </button>
-            );
-          })}
-        </div>
-      )}
-      <button onClick={onNewSideDay} className="w-full rounded-2xl p-4 flex items-center justify-center gap-2 text-[13px] font-semibold" style={{ backgroundColor: C.surface, color: C.accent }}>
-        <Plus size={15} /> New side workout
-      </button>
-    </div>
-  );
-}
-
-export function LibraryScreen({ sessions, customExercises, sideDays, onBack, onNewCustomExercise, onNewSideDay, onStartSideDay, onDeleteSideDay }) {
-  const [tab, setTab] = useState("exercises");
-
-  return (
-    <div className="px-5 pt-5 pb-32">
-      <div className="flex items-center gap-2 mb-5">
-        <button onClick={onBack} className="p-2 -ml-2 rounded-lg" aria-label="Back"><ArrowLeft size={20} style={{ color: C.ink2 }} /></button>
-        <h1 className="text-[20px] font-bold tracking-tight" style={{ color: C.ink }}>Library</h1>
-      </div>
-      <div className="flex gap-1.5 p-1 rounded-xl mb-5" style={{ backgroundColor: C.surface }}>
-        {[["exercises", "Exercises"], ["side", "Side workouts"]].map(([k, lab]) => (
-          <button key={k} onClick={() => setTab(k)} className="flex-1 py-2 rounded-lg text-[12.5px] font-semibold" style={{ backgroundColor: tab === k ? C.bg : "transparent", color: tab === k ? C.ink : C.ink3 }}>{lab}</button>
-        ))}
-      </div>
-      {tab === "exercises"
-        ? <ExercisesTab sessions={sessions} customExercises={customExercises} onNewCustomExercise={onNewCustomExercise} />
-        : <SideWorkoutsTab sideDays={sideDays} onNewSideDay={onNewSideDay} onStart={onStartSideDay} onDelete={onDeleteSideDay} />}
     </div>
   );
 }

@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { Activity, ArrowLeft, ArrowUpRight, ChevronDown, ChevronUp, Dumbbell, Plus, Search, Trash2, X } from "lucide-react";
 import { FloatingAddButton } from "./WorkoutScreen";
 import { CatTag, EquipPill } from "./atoms";
-import { C } from "../lib/constants";
+import { ACCENT, C } from "../lib/constants";
 import { EQUIPMENT_FILTERS, MUSCLE_ORDER, autoMuscleForDay, ex, mergeLibrary } from "../lib/exerciseLibrary";
 import { estDurationMin } from "../lib/insights";
 import { dayAccentColor, relativeDays } from "../lib/sessionUtils";
@@ -196,8 +196,89 @@ export function AddExerciseScreen({ day, onAdd, onBack, customExercises }) {
 
 export function blankRow(o) { return { tempId: makeId(), name: "", section: "", setsCount: "3", repsLabel: "8-12", rest: "90", ...o }; }
 
+function SideDayDetail({ day, onBack, onStart, onDelete }) {
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const accent = ACCENT[day.tag] || C.accent;
+  return (
+    <div>
+      <div className="flex items-center gap-2 mb-5">
+        <button onClick={onBack} className="p-2 -ml-2 rounded-lg" aria-label="Back"><ArrowLeft size={20} style={{ color: C.ink2 }} /></button>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <h1 className="text-[20px] font-bold tracking-tight truncate" style={{ color: C.ink }}>{day.title}</h1>
+            <CatTag tag={day.tag} colorOverride={accent} />
+          </div>
+          {day.subtitle && <div className="text-[12.5px] mt-0.5" style={{ color: C.ink2 }}>{day.subtitle}</div>}
+        </div>
+      </div>
+      <div className="text-[12px] mb-4" style={{ color: C.ink3 }}>{day.exercises.length} exercises · ~{estDurationMin(day)} min</div>
+      <div className="flex flex-col gap-2 mb-6">
+        {day.exercises.map((e) => (
+          <div key={e.id} className="rounded-2xl p-3.5" style={{ backgroundColor: C.bg, border: `1px solid ${C.border}` }}>
+            {e.section && <div className="text-[10px] uppercase tracking-wide font-semibold mb-0.5" style={{ color: C.ink3 }}>{e.section}</div>}
+            <div className="text-[14px] font-semibold" style={{ color: C.ink }}>{e.best}</div>
+            <div className="text-[12px] tabular-nums mt-1" style={{ color: C.ink2 }}>{e.setsLabel} × {e.repsLabel} · rest {e.rest}s</div>
+          </div>
+        ))}
+      </div>
+      <button onClick={() => onStart(day)} className="w-full rounded-2xl py-4 text-[15px] font-semibold mb-3 flex items-center justify-center gap-2" style={{ backgroundColor: C.ink, color: "#fff" }}>
+        Start workout <ArrowUpRight size={17} />
+      </button>
+      {confirmDelete ? (
+        <div className="flex items-center justify-center gap-3 text-[12px]">
+          <span style={{ color: C.ink2 }}>Delete this side workout?</span>
+          <button onClick={() => onDelete(day.id)} className="font-semibold px-3 py-1.5 rounded-lg" style={{ backgroundColor: C.bad, color: "#fff" }}>Delete</button>
+          <button onClick={() => setConfirmDelete(false)} style={{ color: C.ink3 }}>Cancel</button>
+        </div>
+      ) : (
+        <button onClick={() => setConfirmDelete(true)} className="w-full text-center text-[12px] font-semibold" style={{ color: C.ink3 }}>Delete side workout</button>
+      )}
+    </div>
+  );
+}
 
-export function NewDayScreen({ onSave, onCancel, customExercises, onNewCustomExercise }) {
+function SideWorkoutsPanel({ sideDays, onStart, onDelete, onSwitchToBuild }) {
+  const [viewing, setViewing] = useState(null);
+  const day = viewing ? sideDays.find((d) => d.id === viewing) : null;
+
+  if (day) {
+    return <SideDayDetail day={day} onBack={() => setViewing(null)} onStart={onStart} onDelete={(id) => { onDelete(id); setViewing(null); }} />;
+  }
+
+  return (
+    <div>
+      <p className="text-[12.5px] mb-4" style={{ color: C.ink3 }}>Saved workouts that live outside your training plan — try something once without touching your rotation, or keep a stash of one-off days.</p>
+      {sideDays.length === 0 ? (
+        <div className="text-center py-10 text-[14px]" style={{ color: C.ink3 }}>No side workouts yet.</div>
+      ) : (
+        <div className="flex flex-col gap-2 mb-4">
+          {sideDays.map((d) => {
+            const accent = ACCENT[d.tag] || C.accent;
+            return (
+              <button key={d.id} onClick={() => setViewing(d.id)} className="rounded-2xl text-left p-4 flex items-center gap-3.5 w-full" style={{ backgroundColor: C.bg, border: `1px solid ${C.border}` }}>
+                <div className="w-1 self-stretch rounded-full shrink-0" style={{ backgroundColor: accent }} />
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-0.5">
+                    <span className="text-[15px] font-semibold tracking-tight" style={{ color: C.ink }}>{d.title}</span>
+                    <CatTag tag={d.tag} colorOverride={accent} />
+                  </div>
+                  <div className="text-[12px]" style={{ color: C.ink3 }}>{d.exercises.length} exercises · ~{estDurationMin(d)} min</div>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      )}
+      <button onClick={onSwitchToBuild} className="w-full rounded-2xl p-4 flex items-center justify-center gap-2 text-[13px] font-semibold" style={{ backgroundColor: C.surface, color: C.accent }}>
+        <Plus size={15} /> Build a new side workout
+      </button>
+    </div>
+  );
+}
+
+export function NewDayScreen({ onSave, onSaveSide, onCancel, customExercises, onNewCustomExercise, sideDays, onStartSideDay, onDeleteSideDay }) {
+  const [screenTab, setScreenTab] = useState("build"); // "build" | "side"
+  const [destination, setDestination] = useState("plan"); // "plan" | "side"
   const [title, setTitle] = useState("");
   const [subtitle, setSubtitle] = useState("");
   const [tag, setTag] = useState("CUSTOM");
@@ -247,7 +328,8 @@ export function NewDayScreen({ onSave, onCancel, customExercises, onNewCustomExe
       const cardio = r.kind === "cardio" || r.section === "Cardio";
       return { id: `custom-ex-${makeId()}-${i}`, section: r.section.trim(), best: r.name.trim(), subs: [], kind: cardio ? "cardio" : "lifting", muscle: r.section.trim(), setsLabel: cardio ? "—" : String(r.setsCount || "3"), repsLabel: cardio ? "timed" : (r.repsLabel.trim() || "8-12"), rest: Number(r.rest) || 90, prefill: cardio ? 0 : Math.max(1, Number(r.setsCount) || 3) };
     });
-    onSave({ id: `custom-${makeId()}`, tag, title: title.trim(), subtitle: subtitle.trim() || `${exercises.length} exercises`, custom: true, exercises });
+    const day = { id: `custom-${makeId()}`, tag, title: title.trim(), subtitle: subtitle.trim() || `${exercises.length} exercises`, custom: true, exercises };
+    if (destination === "side") onSaveSide(day); else onSave(day);
   }
 
   // Exercise picker overlay
@@ -316,16 +398,44 @@ export function NewDayScreen({ onSave, onCancel, customExercises, onNewCustomExe
     );
   }
 
+  const tabSwitcher = (
+    <div className="flex gap-1.5 p-1 rounded-xl mb-5" style={{ backgroundColor: C.surface }}>
+      {[["build", "Build a day"], ["side", "Side workouts"]].map(([k, lab]) => (
+        <button key={k} onClick={() => setScreenTab(k)} className="flex-1 py-2 rounded-lg text-[12.5px] font-semibold" style={{ backgroundColor: screenTab === k ? C.bg : "transparent", color: screenTab === k ? C.ink : C.ink3 }}>{lab}</button>
+      ))}
+    </div>
+  );
+
+  if (screenTab === "side") {
+    return (
+      <div className="px-5 pt-5 pb-32">
+        <div className="flex items-center gap-2 mb-5">
+          <button onClick={onCancel} className="p-2 -ml-2 rounded-lg" aria-label="Back"><ArrowLeft size={20} style={{ color: C.ink2 }} /></button>
+          <h1 className="text-[18px] font-bold tracking-tight" style={{ color: C.ink }}>New workout day</h1>
+        </div>
+        {tabSwitcher}
+        <SideWorkoutsPanel sideDays={sideDays} onStart={onStartSideDay} onDelete={onDeleteSideDay} onSwitchToBuild={() => { setDestination("side"); setScreenTab("build"); }} />
+      </div>
+    );
+  }
+
   return (
     <div className="px-5 pt-5 pb-32">
       <div className="flex items-center gap-2 mb-5">
         <button onClick={onCancel} className="p-2 -ml-2 rounded-lg" aria-label="Back"><ArrowLeft size={20} style={{ color: C.ink2 }} /></button>
         <h1 className="text-[18px] font-bold tracking-tight" style={{ color: C.ink }}>New workout day</h1>
       </div>
+      {tabSwitcher}
       <label className="text-[11px] uppercase tracking-wide font-bold" style={{ color: C.ink3 }}>Day name</label>
       <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Arms Day" className={inputCls + " mt-1 mb-3"} style={inputSty} />
       <label className="text-[11px] uppercase tracking-wide font-bold" style={{ color: C.ink3 }}>Subtitle (optional)</label>
       <input value={subtitle} onChange={(e) => setSubtitle(e.target.value)} placeholder="e.g. Biceps & triceps focus" className={inputCls + " mt-1 mb-3"} style={inputSty} />
+      <label className="text-[11px] uppercase tracking-wide font-bold" style={{ color: C.ink3 }}>Add to</label>
+      <div className="flex gap-1.5 mt-1 mb-4">
+        <button onClick={() => setDestination("plan")} className="flex-1 py-2 rounded-xl text-[12.5px] font-semibold" style={{ backgroundColor: destination === "plan" ? C.ink : C.surface, color: destination === "plan" ? "#fff" : C.ink2 }}>My Plan</button>
+        <button onClick={() => setDestination("side")} className="flex-1 py-2 rounded-xl text-[12.5px] font-semibold" style={{ backgroundColor: destination === "side" ? C.ink : C.surface, color: destination === "side" ? "#fff" : C.ink2 }}>Side Workout</button>
+      </div>
+      <div className="text-[11px] mb-4 -mt-2" style={{ color: C.ink4 }}>{destination === "side" ? "Saved outside your training plan — start it on demand, never in the rotation." : "Added to your Program list and joins the day rotation."}</div>
       <label className="text-[11px] uppercase tracking-wide font-bold" style={{ color: C.ink3 }}>Focus</label>
       <div className="flex gap-1.5 mt-1 mb-4">
         {["PUSH", "PULL", "LEGS", "CUSTOM"].map((tg) => <button key={tg} onClick={() => setTag(tg)} className="text-[12px] px-3 py-1.5 rounded-full font-semibold" style={{ backgroundColor: tag === tg ? C.ink : C.surface, color: tag === tg ? "#fff" : C.ink2 }}>{tg.charAt(0) + tg.slice(1).toLowerCase()}</button>)}
@@ -364,7 +474,7 @@ export function NewDayScreen({ onSave, onCancel, customExercises, onNewCustomExe
         ))}
       </div>
       <button onClick={() => setRows((r) => [...r, blankRow()])} className="w-full rounded-xl py-2.5 text-[12px] font-semibold flex items-center justify-center gap-1.5 mb-6" style={{ backgroundColor: C.surface, color: C.ink2 }}><Plus size={14} /> Add exercise</button>
-      <button onClick={handleSave} disabled={!canSave} className="w-full rounded-2xl py-3.5 text-[15px] font-semibold" style={{ backgroundColor: canSave ? C.ink : C.surface, color: canSave ? "#fff" : C.ink3 }}>Save workout day</button>
+      <button onClick={handleSave} disabled={!canSave} className="w-full rounded-2xl py-3.5 text-[15px] font-semibold" style={{ backgroundColor: canSave ? C.ink : C.surface, color: canSave ? "#fff" : C.ink3 }}>{destination === "side" ? "Save side workout" : "Save workout day"}</button>
     </div>
   );
 }

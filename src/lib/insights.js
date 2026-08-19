@@ -1,4 +1,4 @@
-import { Activity, Flame, Heart, Sparkles, Target, TrendingUp, Zap } from "lucide-react";
+import { Activity, Flame, Heart, Sparkles, Target, Zap } from "lucide-react";
 import { muscleForLift } from "./muscleMapping";
 
 export function withinDays(iso, days) {
@@ -109,25 +109,7 @@ export function generateInsights(sessions, allDaysById, nextDay) {
     }
   }
 
-  // 4 — most improved lift
-  const byEx = {};
-  for (const s of [...sessions].sort((a, b) => new Date(a.date) - new Date(b.date))) {
-    for (const e of s.exercises) {
-      if (!e.sets.length) continue;
-      const top = Math.max(...e.sets.map((st) => Number(st.weight) || 0));
-      (byEx[e.exId] = byEx[e.exId] || { label: e.selectedLift, pts: [] }).pts.push(top);
-      byEx[e.exId].label = e.selectedLift;
-    }
-  }
-  let best = null;
-  for (const v of Object.values(byEx)) {
-    if (v.pts.length < 2) continue;
-    const gain = v.pts[v.pts.length - 1] - v.pts[0];
-    if (gain > 0 && (!best || gain > best.gain)) best = { label: v.label, gain };
-  }
-  if (best) out.push({ id: "improved", icon: TrendingUp, tone: "good", title: `${best.label} is climbing`, body: `Up ${best.gain} lb since you started tracking it. Progressive overload is working — keep nudging it.` });
-
-  // 5 — recovery / density
+  // 4 — recovery / density
   const last3 = sessions.filter((s) => withinDays(s.date, 3)).length;
   if (last3 >= 3) out.push({ id: "recovery", icon: Heart, tone: "warn", title: "Training density is high", body: `${last3} sessions in 3 days. Make sure sleep and protein are dialed in — recovery is where the growth happens.` });
   else if (recent.length >= 3) out.push({ id: "recovery", icon: Heart, tone: "good", title: "Recovery looks balanced", body: "Your session spacing over the last month gives muscles time to adapt. Good rhythm." });

@@ -308,7 +308,7 @@ export default function IronLog() {
   // starting one never touches the active training plan.
   function handleSaveSideDay(day) {
     setSideDays((prev) => { const next = [...prev, day]; saveSideDays(next); return next; });
-    setScreen("library");
+    setScreen("home");
   }
   function handleDeleteSideDay(dayId) {
     setSideDays((prev) => { const next = prev.filter((d) => d.id !== dayId); saveSideDays(next); return next; });
@@ -615,8 +615,7 @@ export default function IronLog() {
     <div className="min-h-screen" style={{ backgroundColor: C.surface, fontFamily: FONT, WebkitFontSmoothing: "antialiased" }}>
       <div className="max-w-md mx-auto relative" style={{ minHeight: "100vh", paddingTop: "env(safe-area-inset-top, 0px)", backgroundColor: C.bg }}>
         {screen === "home" && <HomeScreen sessions={sessions} activeSession={active} days={allDays} onSelectDay={handleSelectDay} onResume={handleResume} onDiscard={handleDiscardActive} onNewDay={() => setScreen("newday")} onOpenCoach={() => setScreen("coach")} onOpenLibrary={() => setScreen("library")} insights={insights} nextDay={nextDay} onDeleteDay={handleDeleteCustomDay} onDuplicateDay={handleDuplicateDay} onChangePlan={() => setScreen("changeplan")} />}
-        {screen === "library" && <LibraryScreen sessions={sessions} customExercises={customExercises} sideDays={sideDays} onBack={() => setScreen("home")} onNewCustomExercise={handleNewCustomExercise} onNewSideDay={() => setScreen("newsideday")} onStartSideDay={handleStartSideDay} onDeleteSideDay={handleDeleteSideDay} />}
-        {screen === "newsideday" && <NewDayScreen onSave={handleSaveSideDay} onCancel={() => setScreen("library")} customExercises={customExercises} onNewCustomExercise={handleNewCustomExercise} />}
+        {screen === "library" && <LibraryScreen sessions={sessions} customExercises={customExercises} onBack={() => setScreen("home")} onNewCustomExercise={handleNewCustomExercise} />}
         {screen === "changeplan" && <ChangePlanScreen currentDayCount={allDays.length} onSelect={handleChangePlan} onBack={() => setScreen("home")} />}
         {screen === "daypreview" && liveSelectedDay && <DayPreviewScreen day={liveSelectedDay} sessions={sessions} onStart={handleStartDay} onBack={() => setScreen("home")} onAddExercise={handleAddExercise} onRemoveAdded={handleRemoveAdded} onDeleteCustomDay={handleDeleteCustomDay} onReorderExercise={handleReorderExercise} onRemoveExercise={handleRemoveExercisePreview} />}
         {screen === "addexercise" && liveAddTargetDay && <AddExerciseScreen day={liveAddTargetDay} onAdd={handleConfirmAdd} onBack={() => setScreen(addReturnTo)} customExercises={customExercises} />}
@@ -628,7 +627,7 @@ export default function IronLog() {
         {screen === "profile" && <ProfileScreen sessions={sessions} customDays={customDays} dayAdds={dayAdds} user={auth.user} auth={auth} syncStatus={syncStatus} syncError={syncError} lastSyncedAt={lastSyncedAt} onForceSync={handleForceSync} profileName={profileName} firstName={profile.firstName} lastName={profile.lastName} onUpdateName={handleUpdateName} bodyWeight={profile.bodyWeight} onUpdateBodyWeight={handleUpdateBodyWeight} landmarkOverrides={landmarkOverrides} onUpdateLandmarks={handleUpdateLandmarks} />}
         {screen === "coach" && <CoachScreen insights={insights} nextDay={nextDay} onBack={() => setScreen("home")} onStartNext={handleSelectDay} profileName={profileName} />}
         {screen === "workout" && active && <WorkoutScreen active={active} setActive={setActive} sessions={sessions} persistActive={persistActive} onFinish={handleFinish} onExit={() => setScreen("home")} onAddExercise={handleAddExerciseFromWorkout} onDiscard={handleDiscardActive} />}
-        {screen === "newday" && <NewDayScreen onSave={handleSaveNewDay} onCancel={() => setScreen("home")} customExercises={customExercises} onNewCustomExercise={handleNewCustomExercise} />}
+        {screen === "newday" && <NewDayScreen onSave={handleSaveNewDay} onSaveSide={handleSaveSideDay} onCancel={() => setScreen("home")} customExercises={customExercises} onNewCustomExercise={handleNewCustomExercise} sideDays={sideDays} onStartSideDay={handleStartSideDay} onDeleteSideDay={handleDeleteSideDay} />}
         {screen === "summary" && lastFinished && <SummaryScreen session={lastFinished} onDone={() => setScreen("home")} />}
         {showNav && <BottomNav screen={screen} setScreen={setScreen} />}
         {showNav && <InstallBanner />}
