@@ -18,17 +18,10 @@ export const RANGE_OPTS = [["1W", 7], ["1M", 30], ["6M", 182], ["All Time", 1000
 
 export const HEATMAP_REGIONS = ["Chest", "Shoulders", "Triceps", "Biceps", "Back", "Core", "Glutes", "Quads", "Hamstrings", "Calves"];
 // Per-region landmarks now come from lib/landmarks.js (via REGION_TO_MUSCLE), the single
-// shared, user-editable source of truth also used by the Exercises tab's volume bars.
-// Separate, directly-authored ranges for the broad Training Distribution groups (Chest/Back/
-// Legs/Shoulders/Arms/Core). These are NOT a sum of the sub-region numbers above — summing
-// 4 back sub-regions' landmarks previously produced a "22-56 sets" range, which reads as an
-// authoritative target when it's actually an arithmetic artifact, not a real prescription.
+// shared, user-editable source of truth also used by the Exercises tab's volume bars and
+// Training Distribution — every consumer works off the same per-region numbers as the heatmap.
 
 
-export const BROAD_GROUP_LANDMARKS = {
-  Chest: [6, 10, 16], Back: [8, 14, 20], Legs: [10, 16, 24],
-  Shoulders: [6, 10, 16], Arms: [8, 14, 20], Core: [4, 8, 14],
-};
 // Classify a "Back"-category exercise's secondary-muscle spillover by name. The back
 // contribution itself always goes to the single combined "Back" region — only the
 // weight (how primary vs. incidental this movement is for back) and any spillover to

@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { X } from "lucide-react";
 import { C } from "../lib/constants";
-import { BROAD_GROUP_LANDMARKS, HEATMAP_DISPLAY_NAME, HEATMAP_REGIONS, HEATMAP_STATUS_COLOR, HEATMAP_STATUS_LABEL, HEATMAP_STATUS_SHORT, heatmapStatus, recoveryFilter } from "../lib/heatmapData";
+import { HEATMAP_DISPLAY_NAME, HEATMAP_REGIONS, HEATMAP_STATUS_COLOR, HEATMAP_STATUS_LABEL, HEATMAP_STATUS_SHORT, recoveryFilter } from "../lib/heatmapData";
 import { BACK_SHAPES, FRONT_SHAPES, SILHOUETTE_PATH } from "../lib/muscleShapes";
 
 export function MusclePath({ shape, region, data, selected, onSelect }) {
@@ -38,28 +38,25 @@ export function MuscleHeatmap({ data, rangeDays, weeks }) {
   const hasAnyData = totalSets > 0;
   const sel = selected ? data[selected] : null;
 
-  // Training Distribution — broad groups the user actually thinks in (Chest/Back/Legs/Shoulders/Arms/Core).
-  // Each shows "Effective Sets (This Period)" against its combined weekly-recommended range,
-  // with the bar/number colored from that SAME combined total vs the SAME broad landmark —
-  // not from the worst individual sub-region — so the color always agrees with the number
-  // printed right next to it. (Checking sub-regions individually let a group's combined
-  // total sail past its own displayed MRV while every sub-region stayed under its own,
-  // smaller one — e.g. Arms showing "27 / 8–20" but colored yellow, not red.)
+  // Training Distribution — one bar per muscle group, matching the heatmap 1:1. Each
+  // region's sets/status/landmarks come straight from `data[region]`, the exact same
+  // object driving the body-map color — so there's no separate rollup math that can
+  // disagree with what's shown on the map (the old broad Chest/Back/Legs/Shoulders/
+  // Arms/Core grouping let a combined total sail past its own MRV while no single
+  // sub-region did, e.g. Arms showing "27 / 8–20" but colored yellow, not red).
   const distGroups = useMemo(() => {
     const w = Math.max(1, weeks || 1);
-    const groupOf = (label, regions) => {
-      const periodSets = regions.reduce((a, r) => a + (data[r]?.sets || 0), 0);
-      const lm = BROAD_GROUP_LANDMARKS[label] || [0, 0, 0];
-      return { label, regions, periodSets, min: Math.round(lm[0] * w), max: Math.round(lm[2] * w), status: heatmapStatus(periodSets / w, lm) };
-    };
-    return [
-      groupOf("Chest", ["Chest"]),
-      groupOf("Back", ["Back"]),
-      groupOf("Legs", ["Quads", "Hamstrings", "Glutes", "Calves"]),
-      groupOf("Shoulders", ["Shoulders"]),
-      groupOf("Arms", ["Biceps", "Triceps"]),
-      groupOf("Core", ["Core"]),
-    ];
+    return HEATMAP_REGIONS.map((region) => {
+      const d = data[region];
+      const lm = d?.landmarks || [0, 0, 0];
+      return {
+        label: HEATMAP_DISPLAY_NAME[region] || region,
+        periodSets: d?.sets || 0,
+        min: Math.round(lm[0] * w),
+        max: Math.round(lm[2] * w),
+        status: d?.status || "gray",
+      };
+    });
   }, [data, weeks]);
 
   return (
@@ -172,7 +169,7 @@ export function MuscleHeatmap({ data, rangeDays, weeks }) {
             const color = HEATMAP_STATUS_COLOR[g.status];
             return (
               <div key={g.label} className="flex items-center gap-2.5">
-                <span className="text-[12.5px] font-semibold w-[70px] shrink-0" style={{ color: C.ink2 }}>{g.label}</span>
+                <span className="text-[12px] font-semibold w-[76px] shrink-0 truncate" style={{ color: C.ink2 }}>{g.label}</span>
                 <div className="flex-1 h-2.5 rounded-full overflow-hidden" style={{ backgroundColor: C.border }}>
                   <div className="h-full rounded-full" style={{ width: `${pct}%`, backgroundColor: color, transition: "width 250ms ease, background-color 250ms ease" }} />
                 </div>
