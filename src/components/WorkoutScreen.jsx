@@ -10,8 +10,7 @@ import { ex } from "../lib/exerciseLibrary";
 import { cancelRestNotification, scheduleRestNotification } from "../lib/notifications";
 import { committedAccum, fmtClock, fmtShortDate, formatSetGroups, isCardioExercise, isCardioOnlySession, lastPerformanceFor, liveTimes, relativeDays } from "../lib/sessionUtils";
 
-export function SetRow({ idx, set, prevSet, accent, onChange, onLog, onRemove }) {
-  const canLog = set.reps !== "" && !set.done;
+export function SetRow({ idx, set, prevSet, accent, isActive, onChange, onStart, onEnd, onRemove }) {
   const weightNum = Number(set.weight) || 0;
   const delta = prevSet ? weightNum - (Number(prevSet.weight) || 0) : null;
 
@@ -27,19 +26,30 @@ export function SetRow({ idx, set, prevSet, accent, onChange, onLog, onRemove })
       </div>
     );
   }
+  // Idle sets show a Play button — tapping it makes that set the one the header
+  // timer is running, wherever it sits in the workout, so you can jump straight to
+  // any set without reordering exercises. The set that's actually running swaps to
+  // a Check, which is the same action as the header's "End Set": log it and rest.
   return (
-    <div className="py-1.5">
+    <div className="py-1.5 px-1 -mx-1 rounded-xl" style={{ backgroundColor: isActive ? C.goodSoft : "transparent" }}>
       <div className="flex items-center gap-2">
-        <div className="w-6 h-6 rounded-full flex items-center justify-center shrink-0 tabular-nums text-[12px] font-semibold" style={{ border: `1.5px solid ${C.border2}`, color: C.ink3 }}>{idx + 1}</div>
+        <div className="w-6 h-6 rounded-full flex items-center justify-center shrink-0 tabular-nums text-[12px] font-semibold"
+          style={{ border: `1.5px solid ${isActive ? C.good : C.border2}`, color: isActive ? C.good : C.ink3 }}>{idx + 1}</div>
         <div className="flex items-center gap-1 flex-1">
           <input type="number" inputMode="decimal" placeholder={prevSet ? String(prevSet.weight) : "0"} value={set.weight} onChange={(e) => onChange({ ...set, weight: e.target.value })} className="w-16 rounded-xl px-2.5 py-2 text-[15px] tabular-nums outline-none" style={{ backgroundColor: C.surface, color: C.ink }} />
           <span className="text-[11px]" style={{ color: C.ink3 }}>lb</span>
           <input type="number" inputMode="numeric" placeholder={prevSet ? String(prevSet.reps) : "0"} value={set.reps} onChange={(e) => onChange({ ...set, reps: e.target.value })} className="w-14 rounded-xl px-2.5 py-2 text-[15px] tabular-nums outline-none ml-1" style={{ backgroundColor: C.surface, color: C.ink }} />
           <span className="text-[11px]" style={{ color: C.ink3 }}>reps</span>
         </div>
-        <button onClick={onLog} disabled={!canLog} className="w-9 h-9 rounded-full flex items-center justify-center shrink-0" style={{ backgroundColor: canLog ? C.ink : C.surface }}>
-          <Check size={15} color={canLog ? "#fff" : C.ink4} strokeWidth={3} />
-        </button>
+        {isActive ? (
+          <button onClick={onEnd} className="w-9 h-9 rounded-full flex items-center justify-center shrink-0" style={{ backgroundColor: C.good }} aria-label={`End set ${idx + 1}`}>
+            <Check size={15} color="#fff" strokeWidth={3} />
+          </button>
+        ) : (
+          <button onClick={onStart} className="w-9 h-9 rounded-full flex items-center justify-center shrink-0" style={{ backgroundColor: C.ink }} aria-label={`Start set ${idx + 1}`}>
+            <Play size={13} color="#fff" fill="#fff" />
+          </button>
+        )}
         <button onClick={onRemove} className="w-7 h-7 rounded-full flex items-center justify-center shrink-0" aria-label="Remove set"><X size={13} style={{ color: C.ink4 }} /></button>
       </div>
       {prevSet && (
@@ -130,7 +140,7 @@ export function CardioTimer({ exercise }) {
 }
 
 
-export function ExerciseCard({ exercise, prev, accent, isOpen, onToggle, onLogSet, onAddSet, onRemoveSet, onSelectLift, onDeleteExercise, onUpdateNotes, dragHandleProps, linkedToNext, linkedFromPrev }) {
+export function ExerciseCard({ exercise, prev, accent, isOpen, onToggle, onLogSet, onAddSet, onRemoveSet, onSelectLift, onDeleteExercise, onUpdateNotes, dragHandleProps, linkedToNext, linkedFromPrev, activeSetIdx, onStartSet, onEndSet }) {
   const cardio = isCardioExercise(exercise);
   const doneCount = exercise.sets.filter((s) => s.done).length;
   const allDone = cardio ? !!exercise.cardioDone : (doneCount === exercise.sets.length && exercise.sets.length > 0);
@@ -215,8 +225,10 @@ export function ExerciseCard({ exercise, prev, accent, isOpen, onToggle, onLogSe
               <div className="rounded-xl px-2" style={{ backgroundColor: C.surface2, border: `1px solid ${C.border}` }}>
                 {exercise.sets.map((s, i) => (
                   <SetRow key={i} idx={i} set={s} prevSet={prev?.sets?.[i] || null} accent={accent}
+                    isActive={activeSetIdx === i}
                     onChange={(ns) => onLogSet(exercise.exId, i, ns, false)}
-                    onLog={() => onLogSet(exercise.exId, i, { ...s, done: true, lift: exercise.selectedLift }, true)}
+                    onStart={() => onStartSet(exercise.exId, i)}
+                    onEnd={() => onEndSet(exercise.exId, i)}
                     onRemove={() => onRemoveSet(exercise.exId, i)} />
                 ))}
                 {exercise.sets.length === 0 && <div className="text-[12px] py-3 text-center" style={{ color: C.ink3 }}>No sets yet — add one below.</div>}
@@ -251,7 +263,7 @@ export function FloatingAddButton({ onClick, label = "Add exercise", bottom = 90
    slide out of the way in real time, and the drop lands where you see the gap. */
 
 
-export function DragSwipeList({ items, onReorder, onDelete, renderItem, keyFor: getKey }) {
+export function DragSwipeList({ items, onReorder, onDelete, renderItem, keyFor: getKey, deleteLabelFor }) {
   const [activeId, setActiveId] = useState(null);
   const [swipe, setSwipe] = useState({ id: null, dx: 0, open: false });
   const swipeStart = useRef({ x: 0, y: 0 });
@@ -334,7 +346,7 @@ export function DragSwipeList({ items, onReorder, onDelete, renderItem, keyFor: 
                       <button onClick={() => { onDelete(i); setSwipe({ id: null, dx: 0, open: false }); }}
                         className="h-full w-full rounded-2xl flex flex-col items-center justify-center gap-1"
                         style={{ backgroundColor: C.bad, color: "#fff" }}>
-                        <Trash2 size={18} /><span className="text-[11px] font-semibold">Delete</span>
+                        <Trash2 size={18} /><span className="text-[11px] font-semibold">{deleteLabelFor ? deleteLabelFor(item) : "Delete"}</span>
                       </button>
                     </div>
                     <div
@@ -396,7 +408,10 @@ export function WorkoutScreen({ active, setActive, sessions, persistActive, onFi
   const accent = isCardioOnlySession(active.exercises) ? C.cardio : (ACCENT[active.dayTag] || C.accent);
   const [openExId, setOpenExId] = useState(() => active.exercises.find((e) => (e.sets || []).some((s) => !s.done))?.exId || active.exercises[0]?.exId || null);
   const [, forceTick] = useState(0);
-  const [inSet, setInSet] = useState(false);
+  // Which set the header timer is currently running, as { exId, setIdx }. Set by the
+  // header's "Start Set" (which picks the next undone set) or by any set row's Play
+  // button (which picks that exact set) — null means no set is in progress.
+  const [activeSet, setActiveSet] = useState(null);
   const [setStart, setSetStart] = useState(null);
   const [confirmFinish, setConfirmFinish] = useState(false);
   const [confirmDiscard, setConfirmDiscard] = useState(false);
@@ -451,6 +466,16 @@ export function WorkoutScreen({ active, setActive, sessions, persistActive, onFi
   }
   // Rest between rounds uses the last exercise in the group's configured rest.
   function groupRestValue(group) { return group && group.length ? group[group.length - 1].rest : 0; }
+  // True only when the set just finished hands off to a *partner* exercise within the
+  // same round — the one case rest is skipped. Moving on to the next round (or back to
+  // a set in the same exercise, which is what happens when you jump around with the
+  // row Play buttons) completes the round and earns a rest like any other set.
+  function handsOffWithinRound(group, target, afterTarget) {
+    if (!group || group.length < 2 || !afterTarget) return false;
+    return afterTarget.exId !== target.exId
+      && afterTarget.setIdx === target.setIdx
+      && group.some((e) => e.exId === afterTarget.exId);
+  }
 
   /* ---------------------------------------------------------------------- */
   /* Helper: find the globally next uncompleted set, interleaving supersets */
@@ -477,7 +502,7 @@ export function WorkoutScreen({ active, setActive, sessions, persistActive, onFi
     const now = Date.now();
     const next = { ...active, ...committedAccum(active, now), phase: "working", phaseStartedAt: now, restTarget: 0 };
     setActive(next); persistActive(next);
-    setInSet(false); setSetStart(null);
+    setActiveSet(null); setSetStart(null);
     // Auto-open the next exercise that has uncompleted sets
     const nxt = nextUndone(next.exercises);
     if (nxt) setOpenExId(nxt.exId);
@@ -489,21 +514,29 @@ export function WorkoutScreen({ active, setActive, sessions, persistActive, onFi
     else { const next = { ...active, ...committedAccum(active, now), phase: "paused", phaseStartedAt: now, restTarget: 0 }; setActive(next); persistActive(next); }
   }
 
-  function handleStartSet() {
-    const target = nextUndone(active.exercises);
+  // Starting a set from anywhere (header button or a row's Play) funnels through here.
+  // If a rest was running it ends right now — the clock can't be both resting and
+  // working, and the user has plainly moved on by starting a set.
+  function startSetAt(target) {
     if (!target) return;
-    setInSet(true); setSetStart(Date.now());
-    // Jump to the exercise card that owns the next set
+    if (active.phase === "resting" || active.phase === "paused") {
+      const now = Date.now();
+      const next = { ...active, ...committedAccum(active, now), phase: "working", phaseStartedAt: now, restTarget: 0 };
+      setActive(next); persistActive(next);
+    }
+    setActiveSet(target); setSetStart(Date.now());
+    // Jump to the exercise card that owns that set
     if (openExId !== target.exId) setOpenExId(target.exId);
   }
+  function handleStartSet() { startSetAt(nextUndone(active.exercises)); }
 
-  function handleEndSet() {
-    const target = nextUndone(active.exercises);
-    setInSet(false); setSetStart(null);
-    if (!target || active.phase === "resting") return;
+  function endSetAt(target) {
+    setActiveSet(null); setSetStart(null);
+    if (!target) return;
     const ex = active.exercises.find((e) => e.exId === target.exId);
     if (!ex) return;
     const s = ex.sets[target.setIdx];
+    if (!s || s.done) return;
     const lastDone = ex.sets.slice(0, target.setIdx).filter((x) => x.done).pop();
     const weight = s.weight !== "" ? s.weight : (lastDone?.weight ?? "");
     const reps = s.reps !== "" ? s.reps : (lastDone?.reps ?? "");
@@ -522,7 +555,7 @@ export function WorkoutScreen({ active, setActive, sessions, persistActive, onFi
     });
     const afterTarget = nextUndone(exercises);
     const group = supersetGroupOf(exercises, target.exId);
-    const stayingInGroup = group && group.length > 1 && afterTarget && group.some((e) => e.exId === afterTarget.exId);
+    const stayingInGroup = handsOffWithinRound(group, target, afterTarget);
     let next;
     if (stayingInGroup) {
       // Mid-superset: go straight to the linked exercise, no rest inserted.
@@ -533,10 +566,11 @@ export function WorkoutScreen({ active, setActive, sessions, persistActive, onFi
     }
     setActive(next); persistActive(next);
   }
+  function handleEndSet() { endSetAt(activeSet || nextUndone(active.exercises)); }
 
   function handleLogSet(exId, setIdx, newSet, isLog) {
     const now = Date.now();
-    if (isLog) { setInSet(false); setSetStart(null); }
+    if (isLog) { setActiveSet(null); setSetStart(null); }
     let exercises = active.exercises.map((e) => e.exId === exId ? { ...e, sets: e.sets.map((s, i) => i === setIdx ? newSet : s) } : e);
     // Auto-fill next undone sets in same exercise when logging a set
     if (isLog) {
@@ -553,7 +587,7 @@ export function WorkoutScreen({ active, setActive, sessions, persistActive, onFi
       const ex2 = exercises.find((e) => e.exId === exId);
       const afterTarget = nextUndone(exercises);
       const group = supersetGroupOf(exercises, exId);
-      const stayingInGroup = group && group.length > 1 && afterTarget && group.some((e) => e.exId === afterTarget.exId);
+      const stayingInGroup = handsOffWithinRound(group, { exId, setIdx }, afterTarget);
       if (stayingInGroup) {
         // Mid-superset: continue straight to the linked exercise, no rest.
         next = { ...next, ...committedAccum(active, now), phase: "working", phaseStartedAt: now, restTarget: 0 };
@@ -571,30 +605,40 @@ export function WorkoutScreen({ active, setActive, sessions, persistActive, onFi
   function handleAddSet(exId) { const next = { ...active, exercises: active.exercises.map((e) => e.exId === exId ? { ...e, sets: [...e.sets, { weight: "", reps: "", done: false }] } : e) }; setActive(next); persistActive(next); }
   function handleRemoveSet(exId, i) { const next = { ...active, exercises: active.exercises.map((e) => e.exId === exId ? { ...e, sets: e.sets.filter((_, j) => j !== i) } : e) }; setActive(next); persistActive(next); }
   function handleSelectLift(exId, lift) { const next = { ...active, exercises: active.exercises.map((e) => e.exId === exId ? { ...e, selectedLift: lift } : e) }; setActive(next); persistActive(next); }
-  // Superset groups are positional (adjacent linkedToNext flags), so any
-  // change to exercise order or membership clears links rather than risk
-  // silently re-pairing exercises the user never meant to group.
-  function clearLinks(arr) { return arr.map((e) => e.linkedToNext ? { ...e, linkedToNext: false } : e); }
-  function handleMoveExercise(exId, dir) {
-    const idx = active.exercises.findIndex(e => e.exId === exId);
-    const swap = idx + dir;
-    if (idx < 0 || swap < 0 || swap >= active.exercises.length) return;
-    const arr = clearLinks([...active.exercises]);
-    [arr[idx], arr[swap]] = [arr[swap], arr[idx]];
-    const next = { ...active, exercises: arr }; setActive(next); persistActive(next);
+  // Reordering and deleting work on whole superset blocks, so a linked pair drags
+  // around the workout as one unit and can never be split apart by a drop landing
+  // between its members. Flattening always rederives linkedToNext from each block's
+  // own shape, which also scrubs dangling flags (e.g. a group left sitting last).
+  function flattenBlocks(blocks) {
+    return blocks.flatMap((b) => b.map((e, j) => ({ ...e, linkedToNext: j < b.length - 1 })));
+  }
+  function commitBlocks(blocks) {
+    const exercises = flattenBlocks(blocks);
+    const next = { ...active, exercises };
+    setActive(next); persistActive(next);
+    if (!exercises.some((e) => e.exId === openExId)) setOpenExId(exercises[0] ? exercises[0].exId : null);
   }
   function handleReorderTo(fromIdx, toIdx) {
     if (fromIdx === toIdx || fromIdx < 0 || toIdx < 0) return;
-    const arr = clearLinks([...active.exercises]);
-    if (fromIdx >= arr.length || toIdx >= arr.length) return;
-    const [moved] = arr.splice(fromIdx, 1);
-    arr.splice(toIdx, 0, moved);
-    const next = { ...active, exercises: arr }; setActive(next); persistActive(next);
+    const blocks = computeSupersetGroups(active.exercises);
+    if (fromIdx >= blocks.length || toIdx >= blocks.length) return;
+    const [moved] = blocks.splice(fromIdx, 1);
+    blocks.splice(toIdx, 0, moved);
+    commitBlocks(blocks);
+  }
+  function handleDeleteBlock(blockIdx) {
+    const blocks = computeSupersetGroups(active.exercises);
+    if (!blocks[blockIdx]) return;
+    blocks.splice(blockIdx, 1);
+    commitBlocks(blocks);
   }
   function handleDeleteExercise(exId) {
-    const next = { ...active, exercises: clearLinks(active.exercises.filter(e => e.exId !== exId)) };
-    setActive(next); persistActive(next);
-    if (openExId === exId) { const nxt = next.exercises[0]; setOpenExId(nxt ? nxt.exId : null); }
+    // Dropping one member of a pair leaves the survivor as a plain exercise —
+    // flattenBlocks clears the link for us once the block is down to one.
+    const blocks = computeSupersetGroups(active.exercises)
+      .map((b) => b.filter((e) => e.exId !== exId))
+      .filter((b) => b.length);
+    commitBlocks(blocks);
   }
   function handleUpdateNotes(exId, notes) {
     const next = { ...active, exercises: active.exercises.map(e => e.exId === exId ? { ...e, notes } : e) };
@@ -603,6 +647,11 @@ export function WorkoutScreen({ active, setActive, sessions, persistActive, onFi
 
   const now = Date.now();
   const t = liveTimes(active, now);
+  // The running set can be invalidated out from under us (its exercise or the set
+  // itself deleted, or it got logged another way) — re-validate against live data
+  // every render rather than trusting the stored pointer.
+  const liveActiveSet = activeSet && active.exercises.some((e) => e.exId === activeSet.exId && e.sets[activeSet.setIdx] && !e.sets[activeSet.setIdx].done) ? activeSet : null;
+  const inSet = !!liveActiveSet;
   const setDuration = inSet && setStart ? Math.max(0, (now - setStart) / 1000) : 0;
   const resting = active.phase === "resting";
   const paused = active.phase === "paused";
@@ -612,9 +661,15 @@ export function WorkoutScreen({ active, setActive, sessions, persistActive, onFi
   const restRemaining = resting && active.restTarget > 0 ? Math.max(0, active.restTarget - restElapsed) : 0;
   const restOvertime = restOver ? restElapsed - active.restTarget : 0;
 
+  // The list is rendered a block at a time — a superset is one draggable unit.
+  const exerciseBlocks = computeSupersetGroups(active.exercises);
+
   const nextTarget = nextUndone(active.exercises);
-  const targetEx = nextTarget ? active.exercises.find((e) => e.exId === nextTarget.exId) : null;
-  const targetSetNum = nextTarget ? nextTarget.setIdx + 1 : null;
+  // While a set is running the header describes THAT set — which may be one the user
+  // jumped to via its Play button, not the next one in sequence.
+  const focusTarget = liveActiveSet || nextTarget;
+  const targetEx = focusTarget ? active.exercises.find((e) => e.exId === focusTarget.exId) : null;
+  const targetSetNum = focusTarget ? focusTarget.setIdx + 1 : null;
   const targetSetTotal = targetEx ? targetEx.sets.length : 0;
   const targetIsNewEx = targetEx && targetEx.exId !== openExId;
   const allDoneFlag = !nextTarget;
@@ -686,7 +741,7 @@ export function WorkoutScreen({ active, setActive, sessions, persistActive, onFi
                 <button onClick={() => adjustRest(-15)} className="px-3.5 py-2 rounded-xl text-[12px] font-semibold" style={{ backgroundColor: C.surface, color: C.ink2 }}>−15s</button>
                 <button onClick={() => adjustRest(15)} className="px-3.5 py-2 rounded-xl text-[12px] font-semibold" style={{ backgroundColor: C.surface, color: C.ink2 }}>+15s</button>
                 {restOver ? (
-                  <button onClick={() => { endRest(); handleStartSet(); }} className="px-4 py-2 rounded-xl text-[13px] font-semibold flex items-center gap-1.5" style={{ backgroundColor: C.ink, color: "#fff" }}>
+                  <button onClick={handleStartSet} className="px-4 py-2 rounded-xl text-[13px] font-semibold flex items-center gap-1.5" style={{ backgroundColor: C.ink, color: "#fff" }}>
                     <Play size={13} /> Start Set {targetSetNum || ""}
                   </button>
                 ) : (
@@ -720,18 +775,26 @@ export function WorkoutScreen({ active, setActive, sessions, persistActive, onFi
 
       <div className="px-5 pt-4">
         <DragSwipeList
-          items={active.exercises}
-          keyFor={(e) => e.exId}
+          items={exerciseBlocks}
+          keyFor={(b) => b[0].exId}
           onReorder={handleReorderTo}
-          onDelete={(i) => { const ex = active.exercises[i]; if (ex) handleDeleteExercise(ex.exId); }}
-          renderItem={(e, idx, isDragging, handleProps) => (
-            <ExerciseCard exercise={e} prev={lastPerformanceFor(sessions, e.selectedLift)} accent={accent}
-              isOpen={!isDragging && openExId === e.exId} onToggle={() => setOpenExId(openExId === e.exId ? null : e.exId)}
-              onLogSet={handleLogSet} onAddSet={handleAddSet} onRemoveSet={handleRemoveSet} onSelectLift={(l) => handleSelectLift(e.exId, l)}
-              onDeleteExercise={() => handleDeleteExercise(e.exId)}
-              onUpdateNotes={handleUpdateNotes} dragHandleProps={handleProps}
-              linkedToNext={!!e.linkedToNext}
-              linkedFromPrev={idx > 0 && !!active.exercises[idx - 1]?.linkedToNext} />
+          onDelete={handleDeleteBlock}
+          deleteLabelFor={(b) => (b.length > 1 ? "Delete pair" : "Delete")}
+          renderItem={(block, blockIdx, isDragging, handleProps) => (
+            <>
+              {block.map((e, j) => (
+                <ExerciseCard key={e.exId} exercise={e} prev={lastPerformanceFor(sessions, e.selectedLift)} accent={accent}
+                  isOpen={!isDragging && openExId === e.exId} onToggle={() => setOpenExId(openExId === e.exId ? null : e.exId)}
+                  onLogSet={handleLogSet} onAddSet={handleAddSet} onRemoveSet={handleRemoveSet} onSelectLift={(l) => handleSelectLift(e.exId, l)}
+                  onDeleteExercise={() => handleDeleteExercise(e.exId)}
+                  onUpdateNotes={handleUpdateNotes} dragHandleProps={handleProps}
+                  linkedToNext={j < block.length - 1}
+                  linkedFromPrev={j > 0}
+                  activeSetIdx={liveActiveSet && liveActiveSet.exId === e.exId ? liveActiveSet.setIdx : null}
+                  onStartSet={(exId, setIdx) => startSetAt({ exId, setIdx })}
+                  onEndSet={(exId, setIdx) => endSetAt({ exId, setIdx })} />
+              ))}
+            </>
           )}
         />
         <button onClick={onAddExercise} className="w-full rounded-2xl py-3.5 mt-1 flex items-center justify-center gap-2 text-[13px] font-semibold" style={{ backgroundColor: C.surface, color: C.ink2 }}><Plus size={15} /> Add exercise</button>
