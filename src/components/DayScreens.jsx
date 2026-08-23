@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Activity, ArrowLeft, ArrowUpRight, ChevronDown, ChevronUp, Dumbbell, Plus, Search, Trash2, X } from "lucide-react";
+import { Activity, ArrowLeft, ArrowUpRight, ChevronDown, ChevronUp, Dumbbell, Link2, Plus, Search, Trash2, X } from "lucide-react";
 import { FloatingAddButton } from "./WorkoutScreen";
 import { CatTag, EquipPill } from "./atoms";
 import { ACCENT, C } from "../lib/constants";
@@ -41,9 +41,18 @@ export function DayPreviewScreen({ day, sessions, onStart, onBack, onAddExercise
         </div>
       </div>
 
-      <div className="flex flex-col gap-2 mb-6">
-        {day.exercises.map((e, idx) => (
-          <div key={e.id} className="rounded-2xl p-3.5 flex items-start gap-2" style={{ backgroundColor: C.bg, border: `1px solid ${C.border}` }}>
+      <div className="flex flex-col mb-6">
+        {day.exercises.map((e, idx) => {
+          const linkedFromPrev = idx > 0 && !!day.exercises[idx - 1]?.linkedToNext;
+          const inGroup = e.linkedToNext || linkedFromPrev;
+          return (
+          <div key={e.id} className="p-3.5 flex items-start gap-2" style={{
+            backgroundColor: C.bg,
+            border: `1px solid ${C.border}`,
+            marginBottom: e.linkedToNext ? 2 : 8,
+            borderTopLeftRadius: linkedFromPrev ? 6 : 16, borderTopRightRadius: linkedFromPrev ? 6 : 16,
+            borderBottomLeftRadius: e.linkedToNext ? 6 : 16, borderBottomRightRadius: e.linkedToNext ? 6 : 16,
+          }}>
             {editMode && (
               <div className="flex flex-col gap-1 shrink-0 mr-1">
                 <button onClick={() => onReorderExercise(day.id, e.id, -1)} disabled={idx === 0} className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ backgroundColor: C.surface, opacity: idx === 0 ? 0.35 : 1 }} aria-label="Move up"><ChevronUp size={14} style={{ color: C.ink2 }} /></button>
@@ -51,6 +60,11 @@ export function DayPreviewScreen({ day, sessions, onStart, onBack, onAddExercise
               </div>
             )}
             <div className="flex-1 min-w-0">
+              {inGroup && (
+                <span className="inline-flex items-center gap-1 text-[9px] uppercase tracking-wide font-bold px-1.5 py-[1px] rounded-full mb-1" style={{ color: C.accent, backgroundColor: C.surface }}>
+                  <Link2 size={9} /> Superset
+                </span>
+              )}
               {e.section && <div className="text-[10px] uppercase tracking-wide font-semibold mb-0.5" style={{ color: C.ink3 }}>{e.section}</div>}
               <div className="text-[14px] font-semibold" style={{ color: C.ink }}>{e.best}</div>
               {e.subs.length > 0 && <div className="text-[12px] mt-0.5" style={{ color: C.ink3 }}>or {e.subs.join(" / ")}</div>}
@@ -60,7 +74,8 @@ export function DayPreviewScreen({ day, sessions, onStart, onBack, onAddExercise
               ? <button onClick={() => onRemoveExercise(day.id, e.id, e.added)} className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: C.badSoft }} aria-label="Delete exercise"><Trash2 size={14} style={{ color: C.bad }} /></button>
               : (e.added && <button onClick={() => onRemoveAdded(day.id, e.id)} className="p-1.5 shrink-0" aria-label="Remove"><X size={15} style={{ color: C.ink3 }} /></button>)}
           </div>
-        ))}
+          );
+        })}
       </div>
 
       <button onClick={() => onStart(day)} className="w-full rounded-2xl py-4 text-[15px] font-semibold mb-3 flex items-center justify-center gap-2" style={{ backgroundColor: C.ink, color: "#fff" }}>
@@ -95,6 +110,8 @@ export function AddExerciseScreen({ day, onAdd, onBack, customExercises }) {
   const [customName, setCustomName] = useState("");
   const [customKind, setCustomKind] = useState("lifting");
   const [customMuscle, setCustomMuscle] = useState(null); // null = use the auto-suggested muscle
+  const [mode, setMode] = useState("single"); // "single" | "superset"
+  const [supersetFirst, setSupersetFirst] = useState(null); // libEx-shaped object picked for slot 1
   const autoMuscle = autoMuscleForDay(day, customKind);
   const effectiveMuscle = customMuscle || autoMuscle;
   const fullLibrary = useMemo(() => mergeLibrary(customExercises), [customExercises]);
@@ -110,10 +127,20 @@ export function AddExerciseScreen({ day, onAdd, onBack, customExercises }) {
     return byMuscle;
   }, [q, filter, fullLibrary]);
 
+  function switchMode(m) { setMode(m); setSupersetFirst(null); }
+  function handlePick(libEx) {
+    if (mode === "superset") {
+      if (!supersetFirst) { setSupersetFirst(libEx); return; }
+      onAdd(day.id, supersetFirst, libEx);
+      return;
+    }
+    onAdd(day.id, libEx);
+  }
   function addCustom() {
     if (!customName.trim()) return;
-    onAdd(day.id, { name: customName.trim(), muscle: effectiveMuscle, equipment: customKind === "cardio" ? "Cardio" : "Other", rest: 90, kind: customKind, isCustom: true });
+    const built = { name: customName.trim(), muscle: effectiveMuscle, equipment: customKind === "cardio" ? "Cardio" : "Other", rest: 90, kind: customKind, isCustom: true };
     setCustomName(""); setShowCustom(false); setCustomKind("lifting"); setCustomMuscle(null);
+    handlePick(built);
   }
 
   return (
@@ -122,6 +149,21 @@ export function AddExerciseScreen({ day, onAdd, onBack, customExercises }) {
         <button onClick={onBack} className="p-2 -ml-2 rounded-lg" aria-label="Back"><ArrowLeft size={20} style={{ color: C.ink2 }} /></button>
         <h1 className="text-[18px] font-bold tracking-tight" style={{ color: C.ink }}>Add to {day.title}</h1>
       </div>
+
+      <div className="flex gap-1.5 p-1 rounded-xl mb-3" style={{ backgroundColor: C.surface }}>
+        {[["single", "Single exercise"], ["superset", "Superset (2 exercises)"]].map(([k, lab]) => (
+          <button key={k} onClick={() => switchMode(k)} className="flex-1 py-2 rounded-lg text-[12.5px] font-semibold" style={{ backgroundColor: mode === k ? C.bg : "transparent", color: mode === k ? C.ink : C.ink3 }}>{lab}</button>
+        ))}
+      </div>
+      {mode === "superset" && (
+        <div className="flex items-center gap-2 rounded-2xl px-3.5 py-3 mb-3" style={{ backgroundColor: C.accentSoft }}>
+          <Link2 size={15} style={{ color: C.accent }} />
+          <span className="text-[12.5px] font-semibold flex-1" style={{ color: C.accent }}>
+            {supersetFirst ? `${supersetFirst.name} — now pick the second exercise` : "Pick the first exercise"}
+          </span>
+          {supersetFirst && <button onClick={() => setSupersetFirst(null)} className="text-[11px] font-semibold" style={{ color: C.ink3 }}>Change</button>}
+        </div>
+      )}
 
       <div className="flex items-center gap-2 rounded-2xl px-3.5 py-3 mb-3" style={{ backgroundColor: C.surface }}>
         <Search size={17} style={{ color: C.ink3 }} />
@@ -143,12 +185,14 @@ export function AddExerciseScreen({ day, onAdd, onBack, customExercises }) {
           <div className="text-[11px] uppercase tracking-[0.14em] font-bold mb-2" style={{ color: C.ink3 }}>{muscle}</div>
           <div className="flex flex-col gap-2">
             {results[muscle].map((e) => (
-              <button key={e.name} onClick={() => onAdd(day.id, e)} className="rounded-2xl p-3.5 flex items-center gap-3 text-left active:scale-[0.99] transition-transform" style={{ backgroundColor: C.bg, border: `1px solid ${C.border}` }}>
+              <button key={e.name} onClick={() => handlePick(e)} className="rounded-2xl p-3.5 flex items-center gap-3 text-left active:scale-[0.99] transition-transform" style={{ backgroundColor: C.bg, border: `1px solid ${C.border}` }}>
                 <div className="flex-1 min-w-0">
                   <div className="text-[14px] font-semibold truncate" style={{ color: C.ink }}>{e.name}</div>
                   <div className="mt-1"><EquipPill equipment={e.equipment} /></div>
                 </div>
-                <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0" style={{ backgroundColor: C.accentSoft }}><Plus size={16} style={{ color: C.accent }} /></div>
+                <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0" style={{ backgroundColor: C.accentSoft }}>
+                  {mode === "superset" ? <Link2 size={15} style={{ color: C.accent }} /> : <Plus size={16} style={{ color: C.accent }} />}
+                </div>
               </button>
             ))}
           </div>
@@ -290,6 +334,8 @@ export function NewDayScreen({ onSave, onSaveSide, onCancel, customExercises, on
   const [showCustomInput, setShowCustomInput] = useState(false);
   const [customKind, setCustomKind] = useState("lifting");
   const [customMuscle, setCustomMuscle] = useState(null); // null = use the auto-suggested muscle
+  const [supersetStep, setSupersetStep] = useState(0); // 0 = not building a superset, 1 = picking first, 2 = picking second
+  const [supersetFirst, setSupersetFirst] = useState(null); // row fields picked for slot 1
   const autoCustomMuscle = customKind === "cardio" ? "Cardio" : (tag === "PUSH" ? "Chest" : tag === "PULL" ? "Back" : tag === "LEGS" ? "Quads" : "Other");
   const effectiveCustomMuscle = customMuscle || autoCustomMuscle;
 
@@ -310,23 +356,65 @@ export function NewDayScreen({ onSave, onSaveSide, onCancel, customExercises, on
     return byMuscle;
   }, [pickerQ, pickerFilter, fullLibrary]);
 
+  function closePicker() {
+    setPickingFor(null); setPickerQ(""); setPickerFilter("All"); setShowCustomInput(false); setCustomInput("");
+    setSupersetStep(0); setSupersetFirst(null);
+  }
+  function startAddSuperset() {
+    setSupersetStep(1); setSupersetFirst(null);
+    setPickingFor("__superset__");
+  }
+  function removeRow(tempId) {
+    setRows((r) => {
+      const idx = r.findIndex((x) => x.tempId === tempId);
+      if (idx === -1) return r;
+      const next = r.filter((x) => x.tempId !== tempId);
+      // If the row right before the one we're removing was linked to it, that link
+      // now dangles (or would silently re-pair with whatever follows) — clear it.
+      if (idx > 0 && r[idx - 1].linkedToNext) next[idx - 1] = { ...next[idx - 1], linkedToNext: false };
+      return next;
+    });
+  }
+
   function pickExercise(libEx) {
     const cardio = libEx.muscle === "Cardio" || libEx.equipment === "Cardio";
-    setRows((r) => r.map((x) => x.tempId === pickingFor ? { ...x, name: libEx.name, section: libEx.muscle, rest: String(libEx.rest || 90), kind: cardio ? "cardio" : "lifting" } : x));
-    setPickingFor(null); setPickerQ(""); setPickerFilter("All"); setShowCustomInput(false); setCustomInput("");
+    const built = { name: libEx.name, section: libEx.muscle, rest: String(libEx.rest || 90), kind: cardio ? "cardio" : "lifting" };
+    if (pickingFor === "__superset__") {
+      if (supersetStep === 1) {
+        setSupersetFirst(built); setSupersetStep(2);
+        setPickerQ(""); setPickerFilter("All"); setShowCustomInput(false); setCustomInput("");
+        return;
+      }
+      setRows((r) => [...r, blankRow({ ...supersetFirst, linkedToNext: true }), blankRow(built)]);
+      closePicker();
+      return;
+    }
+    setRows((r) => r.map((x) => x.tempId === pickingFor ? { ...x, ...built } : x));
+    closePicker();
   }
   function pickCustom() {
     if (!customInput.trim()) return;
     const muscle = effectiveCustomMuscle;
+    const built = { name: customInput.trim(), kind: customKind, section: muscle };
+    onNewCustomExercise && onNewCustomExercise({ name: built.name, muscle, equipment: customKind === "cardio" ? "Cardio" : "Other", rest: 90, kind: customKind, isCustom: true });
+    if (pickingFor === "__superset__") {
+      if (supersetStep === 1) {
+        setSupersetFirst(built); setSupersetStep(2);
+        setCustomInput(""); setCustomKind("lifting"); setCustomMuscle(null); setShowCustomInput(false);
+        return;
+      }
+      setRows((r) => [...r, blankRow({ ...supersetFirst, linkedToNext: true }), blankRow(built)]);
+      closePicker(); setCustomKind("lifting"); setCustomMuscle(null);
+      return;
+    }
     setRows((r) => r.map((x) => x.tempId === pickingFor ? { ...x, name: customInput.trim(), kind: customKind, section: muscle } : x));
-    onNewCustomExercise && onNewCustomExercise({ name: customInput.trim(), muscle, equipment: customKind === "cardio" ? "Cardio" : "Other", rest: 90, kind: customKind, isCustom: true });
-    setPickingFor(null); setPickerQ(""); setPickerFilter("All"); setShowCustomInput(false); setCustomInput(""); setCustomKind("lifting"); setCustomMuscle(null);
+    closePicker(); setCustomKind("lifting"); setCustomMuscle(null);
   }
 
   function handleSave() {
     const exercises = rows.filter((r) => r.name.trim()).map((r, i) => {
       const cardio = r.kind === "cardio" || r.section === "Cardio";
-      return { id: `custom-ex-${makeId()}-${i}`, section: r.section.trim(), best: r.name.trim(), subs: [], kind: cardio ? "cardio" : "lifting", muscle: r.section.trim(), setsLabel: cardio ? "—" : String(r.setsCount || "3"), repsLabel: cardio ? "timed" : (r.repsLabel.trim() || "8-12"), rest: Number(r.rest) || 90, prefill: cardio ? 0 : Math.max(1, Number(r.setsCount) || 3) };
+      return { id: `custom-ex-${makeId()}-${i}`, section: r.section.trim(), best: r.name.trim(), subs: [], kind: cardio ? "cardio" : "lifting", muscle: r.section.trim(), setsLabel: cardio ? "—" : String(r.setsCount || "3"), repsLabel: cardio ? "timed" : (r.repsLabel.trim() || "8-12"), rest: Number(r.rest) || 90, prefill: cardio ? 0 : Math.max(1, Number(r.setsCount) || 3), linkedToNext: !!r.linkedToNext };
     });
     const day = { id: `custom-${makeId()}`, tag, title: title.trim(), subtitle: subtitle.trim() || `${exercises.length} exercises`, custom: true, exercises };
     if (destination === "side") onSaveSide(day); else onSave(day);
@@ -337,9 +425,17 @@ export function NewDayScreen({ onSave, onSaveSide, onCancel, customExercises, on
     return (
       <div className="px-5 pt-5 pb-32">
         <div className="flex items-center gap-2 mb-4">
-          <button onClick={() => { setPickingFor(null); setPickerQ(""); setPickerFilter("All"); setShowCustomInput(false); setCustomInput(""); }} className="p-2 -ml-2 rounded-lg" aria-label="Back"><ArrowLeft size={20} style={{ color: C.ink2 }} /></button>
-          <h1 className="text-[18px] font-bold tracking-tight" style={{ color: C.ink }}>Pick an exercise</h1>
+          <button onClick={closePicker} className="p-2 -ml-2 rounded-lg" aria-label="Back"><ArrowLeft size={20} style={{ color: C.ink2 }} /></button>
+          <h1 className="text-[18px] font-bold tracking-tight" style={{ color: C.ink }}>
+            {pickingFor === "__superset__" ? (supersetStep === 1 ? "Superset — pick the first exercise" : "Superset — pick the second exercise") : "Pick an exercise"}
+          </h1>
         </div>
+        {pickingFor === "__superset__" && supersetStep === 2 && (
+          <div className="flex items-center gap-2 rounded-2xl px-3.5 py-3 mb-3" style={{ backgroundColor: C.accentSoft }}>
+            <Link2 size={15} style={{ color: C.accent }} />
+            <span className="text-[12.5px] font-semibold" style={{ color: C.accent }}>{supersetFirst?.name} + pick a second exercise</span>
+          </div>
+        )}
         <div className="flex items-center gap-2 rounded-2xl px-3.5 py-3 mb-3" style={{ backgroundColor: C.surface }}>
           <Search size={17} style={{ color: C.ink3 }} />
           <input value={pickerQ} onChange={(e) => setPickerQ(e.target.value)} placeholder="Search exercises or muscle" className="flex-1 bg-transparent outline-none text-[15px]" style={{ color: C.ink }} autoFocus />
@@ -441,14 +537,28 @@ export function NewDayScreen({ onSave, onSaveSide, onCancel, customExercises, on
         {["PUSH", "PULL", "LEGS", "CUSTOM"].map((tg) => <button key={tg} onClick={() => setTag(tg)} className="text-[12px] px-3 py-1.5 rounded-full font-semibold" style={{ backgroundColor: tag === tg ? C.ink : C.surface, color: tag === tg ? "#fff" : C.ink2 }}>{tg.charAt(0) + tg.slice(1).toLowerCase()}</button>)}
       </div>
       <div className="text-[11px] uppercase tracking-wide font-bold mb-2" style={{ color: C.ink3 }}>Exercises</div>
-      <div className="flex flex-col gap-2.5 mb-3">
-        {rows.map((row) => (
-          <div key={row.tempId} className="rounded-2xl p-3" style={{ backgroundColor: C.bg, border: `1px solid ${C.border}` }}>
+      <div className="flex flex-col mb-3">
+        {rows.map((row, idx) => {
+          const linkedFromPrev = idx > 0 && !!rows[idx - 1].linkedToNext;
+          const inGroup = row.linkedToNext || linkedFromPrev;
+          return (
+          <div key={row.tempId} className="p-3" style={{
+            backgroundColor: C.bg,
+            border: `1px solid ${C.border}`,
+            marginBottom: row.linkedToNext ? 2 : 10,
+            borderTopLeftRadius: linkedFromPrev ? 6 : 16, borderTopRightRadius: linkedFromPrev ? 6 : 16,
+            borderBottomLeftRadius: row.linkedToNext ? 6 : 16, borderBottomRightRadius: row.linkedToNext ? 6 : 16,
+          }}>
+            {inGroup && (
+              <span className="inline-flex items-center gap-1 text-[9px] uppercase tracking-wide font-bold px-1.5 py-[1px] rounded-full mb-1.5" style={{ color: C.accent, backgroundColor: C.surface }}>
+                <Link2 size={9} /> Superset
+              </span>
+            )}
             <div className="flex gap-2 mb-2">
               <button onClick={() => setPickingFor(row.tempId)} className="flex-1 rounded-lg px-2.5 py-2 text-left text-[14px] outline-none" style={{ backgroundColor: C.surface, color: row.name ? C.ink : C.ink3 }}>
                 {row.name || "Tap to pick exercise →"}
               </button>
-              <button onClick={() => setRows((r) => r.filter((x) => x.tempId !== row.tempId))} className="p-2 rounded-lg shrink-0" style={{ backgroundColor: C.surface }} aria-label="Remove"><X size={14} style={{ color: C.ink3 }} /></button>
+              <button onClick={() => removeRow(row.tempId)} className="p-2 rounded-lg shrink-0" style={{ backgroundColor: C.surface }} aria-label="Remove"><X size={14} style={{ color: C.ink3 }} /></button>
             </div>
             {row.name && (
               <>
@@ -471,9 +581,13 @@ export function NewDayScreen({ onSave, onSaveSide, onCancel, customExercises, on
               </>
             )}
           </div>
-        ))}
+          );
+        })}
       </div>
-      <button onClick={() => setRows((r) => [...r, blankRow()])} className="w-full rounded-xl py-2.5 text-[12px] font-semibold flex items-center justify-center gap-1.5 mb-6" style={{ backgroundColor: C.surface, color: C.ink2 }}><Plus size={14} /> Add exercise</button>
+      <div className="flex gap-2 mb-6">
+        <button onClick={() => setRows((r) => [...r, blankRow()])} className="flex-1 rounded-xl py-2.5 text-[12px] font-semibold flex items-center justify-center gap-1.5" style={{ backgroundColor: C.surface, color: C.ink2 }}><Plus size={14} /> Add exercise</button>
+        <button onClick={startAddSuperset} className="flex-1 rounded-xl py-2.5 text-[12px] font-semibold flex items-center justify-center gap-1.5" style={{ backgroundColor: C.surface, color: C.ink2 }}><Link2 size={14} /> Add superset</button>
+      </div>
       <button onClick={handleSave} disabled={!canSave} className="w-full rounded-2xl py-3.5 text-[15px] font-semibold" style={{ backgroundColor: canSave ? C.ink : C.surface, color: canSave ? "#fff" : C.ink3 }}>{destination === "side" ? "Save side workout" : "Save workout day"}</button>
     </div>
   );

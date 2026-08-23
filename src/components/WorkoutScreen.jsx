@@ -130,7 +130,7 @@ export function CardioTimer({ exercise }) {
 }
 
 
-export function ExerciseCard({ exercise, prev, accent, isOpen, onToggle, onLogSet, onAddSet, onRemoveSet, onSelectLift, onDeleteExercise, onUpdateNotes, dragHandleProps, linkedToNext, linkedFromPrev, onToggleLink, hasNext }) {
+export function ExerciseCard({ exercise, prev, accent, isOpen, onToggle, onLogSet, onAddSet, onRemoveSet, onSelectLift, onDeleteExercise, onUpdateNotes, dragHandleProps, linkedToNext, linkedFromPrev }) {
   const cardio = isCardioExercise(exercise);
   const doneCount = exercise.sets.filter((s) => s.done).length;
   const allDone = cardio ? !!exercise.cardioDone : (doneCount === exercise.sets.length && exercise.sets.length > 0);
@@ -178,11 +178,6 @@ export function ExerciseCard({ exercise, prev, accent, isOpen, onToggle, onLogSe
           <ChevronDown size={16} style={{ color: C.ink4, transform: isOpen ? "rotate(180deg)" : "none", transition: "transform 0.2s" }} />
         </button>
       </div>
-      {hasNext && (
-        <button onClick={(e) => { e.stopPropagation(); onToggleLink && onToggleLink(); }} className="w-full flex items-center justify-center gap-1.5 py-1.5 text-[11px] font-semibold" style={{ color: linkedToNext ? accent : C.ink4, backgroundColor: linkedToNext ? C.surface : "transparent", borderTop: `1px solid ${C.border}` }}>
-          <Link2 size={12} /> {linkedToNext ? "Linked as superset — tap to unlink" : "Link with next as superset"}
-        </button>
-      )}
       {isOpen && (
         <div className="px-3.5 pb-3.5">
           {/* Notes + delete controls (reorder is in the header) */}
@@ -573,10 +568,6 @@ export function WorkoutScreen({ active, setActive, sessions, persistActive, onFi
     setActive(next);
     if (isLog) persistActive(next);
   }
-  function handleToggleLink(exId) {
-    const next = { ...active, exercises: active.exercises.map((e) => e.exId === exId ? { ...e, linkedToNext: !e.linkedToNext } : e) };
-    setActive(next); persistActive(next);
-  }
   function handleAddSet(exId) { const next = { ...active, exercises: active.exercises.map((e) => e.exId === exId ? { ...e, sets: [...e.sets, { weight: "", reps: "", done: false }] } : e) }; setActive(next); persistActive(next); }
   function handleRemoveSet(exId, i) { const next = { ...active, exercises: active.exercises.map((e) => e.exId === exId ? { ...e, sets: e.sets.filter((_, j) => j !== i) } : e) }; setActive(next); persistActive(next); }
   function handleSelectLift(exId, lift) { const next = { ...active, exercises: active.exercises.map((e) => e.exId === exId ? { ...e, selectedLift: lift } : e) }; setActive(next); persistActive(next); }
@@ -740,9 +731,7 @@ export function WorkoutScreen({ active, setActive, sessions, persistActive, onFi
               onDeleteExercise={() => handleDeleteExercise(e.exId)}
               onUpdateNotes={handleUpdateNotes} dragHandleProps={handleProps}
               linkedToNext={!!e.linkedToNext}
-              linkedFromPrev={idx > 0 && !!active.exercises[idx - 1]?.linkedToNext}
-              hasNext={idx < active.exercises.length - 1}
-              onToggleLink={() => handleToggleLink(e.exId)} />
+              linkedFromPrev={idx > 0 && !!active.exercises[idx - 1]?.linkedToNext} />
           )}
         />
         <button onClick={onAddExercise} className="w-full rounded-2xl py-3.5 mt-1 flex items-center justify-center gap-2 text-[13px] font-semibold" style={{ backgroundColor: C.surface, color: C.ink2 }}><Plus size={15} /> Add exercise</button>

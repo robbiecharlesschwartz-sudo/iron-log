@@ -136,6 +136,7 @@ export function toActiveExercise(e) {
     repsLabel: e.repsLabel,
     rest: e.rest,
     sets: cardio ? [] : Array.from({ length: e.prefill }, () => ({ weight: "", reps: "", done: false })),
+    linkedToNext: !!e.linkedToNext,
   };
 }
 

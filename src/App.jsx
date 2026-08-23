@@ -406,15 +406,23 @@ export default function IronLog() {
 
   function handleAddExercise(day) { setAddTargetDay(day); setAddReturnTo("daypreview"); setScreen("addexercise"); }
   function handleAddExerciseFromWorkout() { if (!active) return; setAddTargetDay({ id: active.dayId, tag: active.dayTag, title: active.dayTitle }); setAddReturnTo("workout"); setScreen("addexercise"); }
-  function handleConfirmAdd(dayId, libEx) {
-    const cardio = libEx.kind === "cardio" || libEx.muscle === "Cardio" || libEx.equipment === "Cardio";
-    const exObj = { id: `add-${makeId()}`, section: libEx.muscle, best: libEx.name, subs: [], kind: cardio ? "cardio" : "lifting", muscle: libEx.muscle, setsLabel: cardio ? "—" : "3", repsLabel: cardio ? "timed" : "8–12", rest: libEx.rest || 90, prefill: cardio ? 0 : 3 };
-    if (libEx.isCustom) handleNewCustomExercise({ name: libEx.name, muscle: libEx.muscle, equipment: libEx.equipment || "Other", rest: libEx.rest || 90, kind: cardio ? "cardio" : "lifting" });
-    setDayAdds((prev) => { const next = { ...prev, [dayId]: [...(prev[dayId] || []), exObj] }; saveDayAdds(next); return next; });
-    if (addReturnTo === "workout" && active && active.dayId === dayId) { const next = { ...active, exercises: [...active.exercises, toActiveExercise(exObj)] }; setActive(next); persistActive(next); setScreen("workout"); }
+  // Superset pairing is positional (adjacent linkedToNext flags on the day's exercise
+  // list), so any reorder or removal clears links rather than risk silently re-pairing
+  // exercises that were never meant to be grouped.
+  function clearDayLinks(arr) { return arr.map((e) => e.linkedToNext ? { ...e, linkedToNext: false } : e); }
+  function handleConfirmAdd(dayId, libEx, libEx2) {
+    const build = (le, linked) => {
+      const cardio = le.kind === "cardio" || le.muscle === "Cardio" || le.equipment === "Cardio";
+      const exObj = { id: `add-${makeId()}`, section: le.muscle, best: le.name, subs: [], kind: cardio ? "cardio" : "lifting", muscle: le.muscle, setsLabel: cardio ? "—" : "3", repsLabel: cardio ? "timed" : "8–12", rest: le.rest || 90, prefill: cardio ? 0 : 3, linkedToNext: linked };
+      if (le.isCustom) handleNewCustomExercise({ name: le.name, muscle: le.muscle, equipment: le.equipment || "Other", rest: le.rest || 90, kind: cardio ? "cardio" : "lifting" });
+      return exObj;
+    };
+    const added = libEx2 ? [build(libEx, true), build(libEx2, false)] : [build(libEx, false)];
+    setDayAdds((prev) => { const next = { ...prev, [dayId]: [...(prev[dayId] || []), ...added] }; saveDayAdds(next); return next; });
+    if (addReturnTo === "workout" && active && active.dayId === dayId) { const next = { ...active, exercises: [...active.exercises, ...added.map(toActiveExercise)] }; setActive(next); persistActive(next); setScreen("workout"); }
     else setScreen("daypreview");
   }
-  function handleRemoveAdded(dayId, exId) { setDayAdds((prev) => { const next = { ...prev, [dayId]: (prev[dayId] || []).filter((e) => e.id !== exId) }; if (next[dayId].length === 0) delete next[dayId]; saveDayAdds(next); return next; }); }
+  function handleRemoveAdded(dayId, exId) { setDayAdds((prev) => { const next = { ...prev, [dayId]: clearDayLinks((prev[dayId] || []).filter((e) => e.id !== exId)) }; if (next[dayId].length === 0) delete next[dayId]; saveDayAdds(next); return next; }); }
 
   // Bake a day's current merged exercise list into customDays (converts built-in to editable custom)
   function commitDayExercises(dayId, newExercises) {
@@ -441,14 +449,14 @@ export default function IronLog() {
     const swap = idx + dir;
     if (idx < 0 || swap < 0 || swap >= arr.length) return;
     [arr[idx], arr[swap]] = [arr[swap], arr[idx]];
-    commitDayExercises(dayId, arr);
+    commitDayExercises(dayId, clearDayLinks(arr));
   }
   function handleRemoveExercisePreview(dayId, exId, isAdded) {
     if (isAdded) { handleRemoveAdded(dayId, exId); return; }
     const day = allDaysById[dayId];
     if (!day) return;
     if (!window.confirm("Remove this exercise from the day?")) return;
-    commitDayExercises(dayId, day.exercises.filter(e => e.id !== exId));
+    commitDayExercises(dayId, clearDayLinks(day.exercises.filter(e => e.id !== exId)));
   }
 
   function handleFinish(session) {
