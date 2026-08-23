@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Activity, ArrowLeft, Check, ChevronDown, Clock, History, Pause, Play, Plus, SkipForward, Trash2, TrendingDown, TrendingUp, User, X } from "lucide-react";
+import { Activity, ArrowLeft, Check, ChevronDown, Clock, History, Link2, Pause, Play, Plus, SkipForward, Trash2, TrendingDown, TrendingUp, User, X } from "lucide-react";
 import { DndContext, DragOverlay, PointerSensor, TouchSensor, closestCenter, useSensor, useSensors } from "@dnd-kit/core";
 import { SortableContext, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
@@ -130,15 +130,23 @@ export function CardioTimer({ exercise }) {
 }
 
 
-export function ExerciseCard({ exercise, prev, accent, isOpen, onToggle, onLogSet, onAddSet, onRemoveSet, onSelectLift, onDeleteExercise, onUpdateNotes, dragHandleProps }) {
+export function ExerciseCard({ exercise, prev, accent, isOpen, onToggle, onLogSet, onAddSet, onRemoveSet, onSelectLift, onDeleteExercise, onUpdateNotes, dragHandleProps, linkedToNext, linkedFromPrev, onToggleLink, hasNext }) {
   const cardio = isCardioExercise(exercise);
   const doneCount = exercise.sets.filter((s) => s.done).length;
   const allDone = cardio ? !!exercise.cardioDone : (doneCount === exercise.sets.length && exercise.sets.length > 0);
   const liftOptions = [exercise.best, ...(exercise.subs || [])];
   const [notesOpen, setNotesOpen] = useState(false);
+  const inGroup = linkedToNext || linkedFromPrev;
 
   return (
-    <div className="rounded-2xl mb-2.5 overflow-hidden" style={{ backgroundColor: C.bg, border: `1px solid ${isOpen ? C.border2 : C.border}`, boxShadow: isOpen ? CARD_SHADOW : "none" }}>
+    <div className="overflow-hidden" style={{
+      backgroundColor: C.bg,
+      border: `1px solid ${isOpen ? C.border2 : C.border}`,
+      boxShadow: isOpen ? CARD_SHADOW : "none",
+      marginBottom: linkedToNext ? 2 : 10,
+      borderTopLeftRadius: linkedFromPrev ? 6 : 16, borderTopRightRadius: linkedFromPrev ? 6 : 16,
+      borderBottomLeftRadius: linkedToNext ? 6 : 16, borderBottomRightRadius: linkedToNext ? 6 : 16,
+    }}>
       <div className="w-full flex items-center gap-2 p-3.5">
         <div {...(dragHandleProps || {})} className="flex flex-col items-center justify-center gap-[3px] shrink-0 px-2 py-1 -m-1" style={{ touchAction: "none", cursor: "grab", ...(dragHandleProps?.style || {}) }} aria-label="Drag to reorder">
           <span className="block rounded-full" style={{ width: 16, height: 2, backgroundColor: C.ink4 }} />
@@ -152,6 +160,11 @@ export function ExerciseCard({ exercise, prev, accent, isOpen, onToggle, onLogSe
               : exercise.sets.map((s, i) => <div key={i} className="w-1.5 h-5 rounded-full" style={{ backgroundColor: s.done ? C.good : C.border2 }} />)}
           </div>
           <div className="flex-1 min-w-0">
+            {inGroup && (
+              <span className="inline-flex items-center gap-1 text-[9px] uppercase tracking-wide font-bold px-1.5 py-[1px] rounded-full mb-0.5" style={{ color: accent, backgroundColor: C.surface }}>
+                <Link2 size={9} /> Superset
+              </span>
+            )}
             {exercise.section && <div className="text-[10px] uppercase tracking-wide font-semibold" style={{ color: C.ink3 }}>{exercise.section}</div>}
             <div className="text-[14px] font-semibold truncate" style={{ color: C.ink }}>{exercise.selectedLift}</div>
             <div className="text-[12px] tabular-nums" style={{ color: C.ink3 }}>{cardio ? "Cardio · timed" : `${exercise.setsLabel} × ${exercise.repsLabel} · rest ${exercise.rest}s`}</div>
@@ -165,6 +178,11 @@ export function ExerciseCard({ exercise, prev, accent, isOpen, onToggle, onLogSe
           <ChevronDown size={16} style={{ color: C.ink4, transform: isOpen ? "rotate(180deg)" : "none", transition: "transform 0.2s" }} />
         </button>
       </div>
+      {hasNext && (
+        <button onClick={(e) => { e.stopPropagation(); onToggleLink && onToggleLink(); }} className="w-full flex items-center justify-center gap-1.5 py-1.5 text-[11px] font-semibold" style={{ color: linkedToNext ? accent : C.ink4, backgroundColor: linkedToNext ? C.surface : "transparent", borderTop: `1px solid ${C.border}` }}>
+          <Link2 size={12} /> {linkedToNext ? "Linked as superset — tap to unlink" : "Link with next as superset"}
+        </button>
+      )}
       {isOpen && (
         <div className="px-3.5 pb-3.5">
           {/* Notes + delete controls (reorder is in the header) */}
@@ -413,12 +431,49 @@ export function WorkoutScreen({ active, setActive, sessions, persistActive, onFi
   useEffect(() => () => cancelRestNotification(), []);
 
   /* ---------------------------------------------------------------------- */
-  /* Helper: find the globally next uncompleted set (in exercise order)     */
+  /* Supersets: consecutive exercises are grouped when linkedToNext=true on */
+  /* each member but the last. Within a group, sets alternate round by      */
+  /* round (A1, B1, A2, B2…) instead of finishing one exercise before the   */
+  /* next. Rest is only inserted once a full round through the group        */
+  /* completes — not between the group's own members.                      */
+  /* ---------------------------------------------------------------------- */
+  function computeSupersetGroups(exercises) {
+    const groups = [];
+    let i = 0;
+    while (i < exercises.length) {
+      const group = [exercises[i]];
+      while (exercises[i]?.linkedToNext && i + 1 < exercises.length) {
+        i++;
+        group.push(exercises[i]);
+      }
+      groups.push(group);
+      i++;
+    }
+    return groups;
+  }
+  function supersetGroupOf(exercises, exId) {
+    return computeSupersetGroups(exercises).find((g) => g.some((e) => e.exId === exId)) || null;
+  }
+  // Rest between rounds uses the last exercise in the group's configured rest.
+  function groupRestValue(group) { return group && group.length ? group[group.length - 1].rest : 0; }
+
+  /* ---------------------------------------------------------------------- */
+  /* Helper: find the globally next uncompleted set, interleaving supersets */
   /* ---------------------------------------------------------------------- */
   function nextUndone(exercises) {
-    for (const e of exercises) {
-      const i = e.sets.findIndex((s) => !s.done);
-      if (i !== -1) return { exId: e.exId, setIdx: i };
+    for (const group of computeSupersetGroups(exercises)) {
+      if (group.length === 1) {
+        const e = group[0];
+        const i = e.sets.findIndex((s) => !s.done);
+        if (i !== -1) return { exId: e.exId, setIdx: i };
+        continue;
+      }
+      const maxRounds = Math.max(...group.map((e) => e.sets.length));
+      for (let r = 0; r < maxRounds; r++) {
+        for (const e of group) {
+          if (e.sets[r] && !e.sets[r].done) return { exId: e.exId, setIdx: r };
+        }
+      }
     }
     return null; // all sets complete
   }
@@ -471,8 +526,16 @@ export function WorkoutScreen({ active, setActive, sessions, persistActive, onFi
       })};
     });
     const afterTarget = nextUndone(exercises);
-    if (afterTarget && afterTarget.exId !== target.exId) { /* next exercise — endRest will open it */ }
-    const next = { ...active, exercises, ...committedAccum(active, now), phase: "resting", phaseStartedAt: now, restTarget: ex.rest };
+    const group = supersetGroupOf(exercises, target.exId);
+    const stayingInGroup = group && group.length > 1 && afterTarget && group.some((e) => e.exId === afterTarget.exId);
+    let next;
+    if (stayingInGroup) {
+      // Mid-superset: go straight to the linked exercise, no rest inserted.
+      next = { ...active, exercises, ...committedAccum(active, now), phase: "working", phaseStartedAt: now, restTarget: 0 };
+      setOpenExId(afterTarget.exId);
+    } else {
+      next = { ...active, exercises, ...committedAccum(active, now), phase: "resting", phaseStartedAt: now, restTarget: groupRestValue(group) || ex.rest };
+    }
     setActive(next); persistActive(next);
   }
 
@@ -491,44 +554,54 @@ export function WorkoutScreen({ active, setActive, sessions, persistActive, onFi
       });
     }
     let next = { ...active, exercises };
-    if (isLog && active.phase !== "resting") {
+    if (isLog) {
       const ex2 = exercises.find((e) => e.exId === exId);
-      next = { ...next, ...committedAccum(active, now), phase: "resting", phaseStartedAt: now, restTarget: ex2.rest };
-      if (ex2.sets.every((s) => s.done)) {
-        const nxt = exercises.find((e) => e.exId !== exId && e.sets.some((s) => !s.done));
-        if (nxt) setOpenExId(nxt.exId);
-      }
-    } else if (isLog) {
-      const ex2 = exercises.find((e) => e.exId === exId);
-      if (ex2.sets.every((s) => s.done)) {
-        const nxt = exercises.find((e) => e.exId !== exId && e.sets.some((s) => !s.done));
-        if (nxt) setOpenExId(nxt.exId);
+      const afterTarget = nextUndone(exercises);
+      const group = supersetGroupOf(exercises, exId);
+      const stayingInGroup = group && group.length > 1 && afterTarget && group.some((e) => e.exId === afterTarget.exId);
+      if (stayingInGroup) {
+        // Mid-superset: continue straight to the linked exercise, no rest.
+        next = { ...next, ...committedAccum(active, now), phase: "working", phaseStartedAt: now, restTarget: 0 };
+        setOpenExId(afterTarget.exId);
+      } else if (active.phase !== "resting") {
+        next = { ...next, ...committedAccum(active, now), phase: "resting", phaseStartedAt: now, restTarget: groupRestValue(group) || ex2.rest };
+        if (afterTarget) setOpenExId(afterTarget.exId);
+      } else if (afterTarget) {
+        setOpenExId(afterTarget.exId);
       }
     }
     setActive(next);
     if (isLog) persistActive(next);
   }
+  function handleToggleLink(exId) {
+    const next = { ...active, exercises: active.exercises.map((e) => e.exId === exId ? { ...e, linkedToNext: !e.linkedToNext } : e) };
+    setActive(next); persistActive(next);
+  }
   function handleAddSet(exId) { const next = { ...active, exercises: active.exercises.map((e) => e.exId === exId ? { ...e, sets: [...e.sets, { weight: "", reps: "", done: false }] } : e) }; setActive(next); persistActive(next); }
   function handleRemoveSet(exId, i) { const next = { ...active, exercises: active.exercises.map((e) => e.exId === exId ? { ...e, sets: e.sets.filter((_, j) => j !== i) } : e) }; setActive(next); persistActive(next); }
   function handleSelectLift(exId, lift) { const next = { ...active, exercises: active.exercises.map((e) => e.exId === exId ? { ...e, selectedLift: lift } : e) }; setActive(next); persistActive(next); }
+  // Superset groups are positional (adjacent linkedToNext flags), so any
+  // change to exercise order or membership clears links rather than risk
+  // silently re-pairing exercises the user never meant to group.
+  function clearLinks(arr) { return arr.map((e) => e.linkedToNext ? { ...e, linkedToNext: false } : e); }
   function handleMoveExercise(exId, dir) {
     const idx = active.exercises.findIndex(e => e.exId === exId);
     const swap = idx + dir;
     if (idx < 0 || swap < 0 || swap >= active.exercises.length) return;
-    const arr = [...active.exercises];
+    const arr = clearLinks([...active.exercises]);
     [arr[idx], arr[swap]] = [arr[swap], arr[idx]];
     const next = { ...active, exercises: arr }; setActive(next); persistActive(next);
   }
   function handleReorderTo(fromIdx, toIdx) {
     if (fromIdx === toIdx || fromIdx < 0 || toIdx < 0) return;
-    const arr = [...active.exercises];
+    const arr = clearLinks([...active.exercises]);
     if (fromIdx >= arr.length || toIdx >= arr.length) return;
     const [moved] = arr.splice(fromIdx, 1);
     arr.splice(toIdx, 0, moved);
     const next = { ...active, exercises: arr }; setActive(next); persistActive(next);
   }
   function handleDeleteExercise(exId) {
-    const next = { ...active, exercises: active.exercises.filter(e => e.exId !== exId) };
+    const next = { ...active, exercises: clearLinks(active.exercises.filter(e => e.exId !== exId)) };
     setActive(next); persistActive(next);
     if (openExId === exId) { const nxt = next.exercises[0]; setOpenExId(nxt ? nxt.exId : null); }
   }
@@ -665,7 +738,11 @@ export function WorkoutScreen({ active, setActive, sessions, persistActive, onFi
               isOpen={!isDragging && openExId === e.exId} onToggle={() => setOpenExId(openExId === e.exId ? null : e.exId)}
               onLogSet={handleLogSet} onAddSet={handleAddSet} onRemoveSet={handleRemoveSet} onSelectLift={(l) => handleSelectLift(e.exId, l)}
               onDeleteExercise={() => handleDeleteExercise(e.exId)}
-              onUpdateNotes={handleUpdateNotes} dragHandleProps={handleProps} />
+              onUpdateNotes={handleUpdateNotes} dragHandleProps={handleProps}
+              linkedToNext={!!e.linkedToNext}
+              linkedFromPrev={idx > 0 && !!active.exercises[idx - 1]?.linkedToNext}
+              hasNext={idx < active.exercises.length - 1}
+              onToggleLink={() => handleToggleLink(e.exId)} />
           )}
         />
         <button onClick={onAddExercise} className="w-full rounded-2xl py-3.5 mt-1 flex items-center justify-center gap-2 text-[13px] font-semibold" style={{ backgroundColor: C.surface, color: C.ink2 }}><Plus size={15} /> Add exercise</button>
