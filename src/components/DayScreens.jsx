@@ -101,6 +101,47 @@ export function DayPreviewScreen({ day, sessions, onStart, onBack, onAddExercise
 /* ADD EXERCISE — searchable library                                     */
 /* ====================================================================== */
 
+// Two labelled slots showing what's picked so far, sticky under the header so the
+// pair stays visible while scrolling the library. Nothing is added until Confirm —
+// either slot can be re-picked first.
+function SupersetSlots({ slots, activeSlot, onSelectSlot, onClearSlot, onConfirm }) {
+  const ready = slots[0] && slots[1];
+  return (
+    <div className="sticky z-10 pt-1 pb-2.5 mb-1" style={{ top: "env(safe-area-inset-top, 0px)", backgroundColor: C.bg }}>
+      <div className="rounded-2xl p-3" style={{ backgroundColor: C.accentSoft }}>
+        <div className="flex items-center gap-1.5 mb-2">
+          <Link2 size={13} style={{ color: C.accent }} />
+          <span className="text-[11px] uppercase tracking-wide font-bold" style={{ color: C.accent }}>Build a superset</span>
+        </div>
+        <div className="flex flex-col gap-1.5">
+          {[0, 1].map((i) => {
+            const picked = slots[i];
+            const isActive = activeSlot === i && !picked;
+            return (
+              <button key={i} onClick={() => (picked ? onClearSlot(i) : onSelectSlot(i))}
+                className="w-full flex items-center gap-2.5 rounded-xl px-2.5 py-2 text-left"
+                style={{ backgroundColor: C.bg, border: `1.5px ${picked ? "solid" : "dashed"} ${isActive ? C.accent : C.border2}` }}>
+                <span className="w-5 h-5 rounded-full flex items-center justify-center shrink-0 text-[10px] font-bold"
+                  style={{ backgroundColor: picked ? C.accent : "transparent", color: picked ? "#fff" : C.ink3, border: picked ? "none" : `1.5px solid ${C.border2}` }}>
+                  {i + 1}
+                </span>
+                <span className="flex-1 min-w-0 truncate text-[13px] font-semibold" style={{ color: picked ? C.ink : C.ink3 }}>
+                  {picked ? picked.name : (isActive ? "Pick an exercise below…" : "Tap to fill this slot")}
+                </span>
+                {picked && <X size={14} style={{ color: C.ink3 }} />}
+              </button>
+            );
+          })}
+        </div>
+        <button onClick={onConfirm} disabled={!ready} className="w-full mt-2.5 py-2.5 rounded-xl text-[13px] font-semibold flex items-center justify-center gap-1.5"
+          style={{ backgroundColor: ready ? C.accent : C.border, color: ready ? "#fff" : C.ink3 }}>
+          <Link2 size={14} /> {ready ? "Confirm superset" : "Pick 2 exercises"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 
 export function AddExerciseScreen({ day, onAdd, onBack, customExercises }) {
   const accent = dayAccentColor(day);
@@ -111,7 +152,8 @@ export function AddExerciseScreen({ day, onAdd, onBack, customExercises }) {
   const [customKind, setCustomKind] = useState("lifting");
   const [customMuscle, setCustomMuscle] = useState(null); // null = use the auto-suggested muscle
   const [mode, setMode] = useState("single"); // "single" | "superset"
-  const [supersetFirst, setSupersetFirst] = useState(null); // libEx-shaped object picked for slot 1
+  const [slots, setSlots] = useState([null, null]); // the two exercises being paired
+  const [activeSlot, setActiveSlot] = useState(0); // which slot the next pick fills
   const autoMuscle = autoMuscleForDay(day, customKind);
   const effectiveMuscle = customMuscle || autoMuscle;
   const fullLibrary = useMemo(() => mergeLibrary(customExercises), [customExercises]);
@@ -127,13 +169,18 @@ export function AddExerciseScreen({ day, onAdd, onBack, customExercises }) {
     return byMuscle;
   }, [q, filter, fullLibrary]);
 
-  function switchMode(m) { setMode(m); setSupersetFirst(null); }
+  function switchMode(m) { setMode(m); setSlots([null, null]); setActiveSlot(0); }
+  function fillSlot(libEx) {
+    const next = [...slots];
+    next[activeSlot] = libEx;
+    setSlots(next);
+    const nextEmpty = next.findIndex((s) => !s);
+    setActiveSlot(nextEmpty === -1 ? activeSlot : nextEmpty);
+  }
+  function clearSlot(i) { setSlots((s) => { const next = [...s]; next[i] = null; return next; }); setActiveSlot(i); }
+  function confirmSuperset() { if (slots[0] && slots[1]) onAdd(day.id, slots[0], slots[1]); }
   function handlePick(libEx) {
-    if (mode === "superset") {
-      if (!supersetFirst) { setSupersetFirst(libEx); return; }
-      onAdd(day.id, supersetFirst, libEx);
-      return;
-    }
+    if (mode === "superset") { fillSlot(libEx); return; }
     onAdd(day.id, libEx);
   }
   function addCustom() {
@@ -156,13 +203,7 @@ export function AddExerciseScreen({ day, onAdd, onBack, customExercises }) {
         ))}
       </div>
       {mode === "superset" && (
-        <div className="flex items-center gap-2 rounded-2xl px-3.5 py-3 mb-3" style={{ backgroundColor: C.accentSoft }}>
-          <Link2 size={15} style={{ color: C.accent }} />
-          <span className="text-[12.5px] font-semibold flex-1" style={{ color: C.accent }}>
-            {supersetFirst ? `${supersetFirst.name} — now pick the second exercise` : "Pick the first exercise"}
-          </span>
-          {supersetFirst && <button onClick={() => setSupersetFirst(null)} className="text-[11px] font-semibold" style={{ color: C.ink3 }}>Change</button>}
-        </div>
+        <SupersetSlots slots={slots} activeSlot={activeSlot} onSelectSlot={setActiveSlot} onClearSlot={clearSlot} onConfirm={confirmSuperset} />
       )}
 
       <div className="flex items-center gap-2 rounded-2xl px-3.5 py-3 mb-3" style={{ backgroundColor: C.surface }}>
@@ -334,8 +375,8 @@ export function NewDayScreen({ onSave, onSaveSide, onCancel, customExercises, on
   const [showCustomInput, setShowCustomInput] = useState(false);
   const [customKind, setCustomKind] = useState("lifting");
   const [customMuscle, setCustomMuscle] = useState(null); // null = use the auto-suggested muscle
-  const [supersetStep, setSupersetStep] = useState(0); // 0 = not building a superset, 1 = picking first, 2 = picking second
-  const [supersetFirst, setSupersetFirst] = useState(null); // row fields picked for slot 1
+  const [ssSlots, setSsSlots] = useState([null, null]); // the two exercises being paired
+  const [ssActive, setSsActive] = useState(0); // which slot the next pick fills
   const autoCustomMuscle = customKind === "cardio" ? "Cardio" : (tag === "PUSH" ? "Chest" : tag === "PULL" ? "Back" : tag === "LEGS" ? "Quads" : "Other");
   const effectiveCustomMuscle = customMuscle || autoCustomMuscle;
 
@@ -358,11 +399,25 @@ export function NewDayScreen({ onSave, onSaveSide, onCancel, customExercises, on
 
   function closePicker() {
     setPickingFor(null); setPickerQ(""); setPickerFilter("All"); setShowCustomInput(false); setCustomInput("");
-    setSupersetStep(0); setSupersetFirst(null);
+    setSsSlots([null, null]); setSsActive(0);
   }
   function startAddSuperset() {
-    setSupersetStep(1); setSupersetFirst(null);
+    setSsSlots([null, null]); setSsActive(0);
     setPickingFor("__superset__");
+  }
+  function fillSsSlot(built) {
+    const next = [...ssSlots];
+    next[ssActive] = built;
+    setSsSlots(next);
+    const nextEmpty = next.findIndex((s) => !s);
+    setSsActive(nextEmpty === -1 ? ssActive : nextEmpty);
+    setPickerQ(""); setPickerFilter("All"); setShowCustomInput(false); setCustomInput("");
+  }
+  function clearSsSlot(i) { setSsSlots((s) => { const next = [...s]; next[i] = null; return next; }); setSsActive(i); }
+  function confirmSs() {
+    if (!ssSlots[0] || !ssSlots[1]) return;
+    setRows((r) => [...r, blankRow({ ...ssSlots[0], linkedToNext: true }), blankRow(ssSlots[1])]);
+    closePicker();
   }
   function removeRow(tempId) {
     setRows((r) => {
@@ -379,16 +434,7 @@ export function NewDayScreen({ onSave, onSaveSide, onCancel, customExercises, on
   function pickExercise(libEx) {
     const cardio = libEx.muscle === "Cardio" || libEx.equipment === "Cardio";
     const built = { name: libEx.name, section: libEx.muscle, rest: String(libEx.rest || 90), kind: cardio ? "cardio" : "lifting" };
-    if (pickingFor === "__superset__") {
-      if (supersetStep === 1) {
-        setSupersetFirst(built); setSupersetStep(2);
-        setPickerQ(""); setPickerFilter("All"); setShowCustomInput(false); setCustomInput("");
-        return;
-      }
-      setRows((r) => [...r, blankRow({ ...supersetFirst, linkedToNext: true }), blankRow(built)]);
-      closePicker();
-      return;
-    }
+    if (pickingFor === "__superset__") { fillSsSlot(built); return; }
     setRows((r) => r.map((x) => x.tempId === pickingFor ? { ...x, ...built } : x));
     closePicker();
   }
@@ -397,16 +443,7 @@ export function NewDayScreen({ onSave, onSaveSide, onCancel, customExercises, on
     const muscle = effectiveCustomMuscle;
     const built = { name: customInput.trim(), kind: customKind, section: muscle };
     onNewCustomExercise && onNewCustomExercise({ name: built.name, muscle, equipment: customKind === "cardio" ? "Cardio" : "Other", rest: 90, kind: customKind, isCustom: true });
-    if (pickingFor === "__superset__") {
-      if (supersetStep === 1) {
-        setSupersetFirst(built); setSupersetStep(2);
-        setCustomInput(""); setCustomKind("lifting"); setCustomMuscle(null); setShowCustomInput(false);
-        return;
-      }
-      setRows((r) => [...r, blankRow({ ...supersetFirst, linkedToNext: true }), blankRow(built)]);
-      closePicker(); setCustomKind("lifting"); setCustomMuscle(null);
-      return;
-    }
+    if (pickingFor === "__superset__") { fillSsSlot(built); setCustomKind("lifting"); setCustomMuscle(null); return; }
     setRows((r) => r.map((x) => x.tempId === pickingFor ? { ...x, name: customInput.trim(), kind: customKind, section: muscle } : x));
     closePicker(); setCustomKind("lifting"); setCustomMuscle(null);
   }
@@ -427,14 +464,11 @@ export function NewDayScreen({ onSave, onSaveSide, onCancel, customExercises, on
         <div className="flex items-center gap-2 mb-4">
           <button onClick={closePicker} className="p-2 -ml-2 rounded-lg" aria-label="Back"><ArrowLeft size={20} style={{ color: C.ink2 }} /></button>
           <h1 className="text-[18px] font-bold tracking-tight" style={{ color: C.ink }}>
-            {pickingFor === "__superset__" ? (supersetStep === 1 ? "Superset — pick the first exercise" : "Superset — pick the second exercise") : "Pick an exercise"}
+            {pickingFor === "__superset__" ? "New superset" : "Pick an exercise"}
           </h1>
         </div>
-        {pickingFor === "__superset__" && supersetStep === 2 && (
-          <div className="flex items-center gap-2 rounded-2xl px-3.5 py-3 mb-3" style={{ backgroundColor: C.accentSoft }}>
-            <Link2 size={15} style={{ color: C.accent }} />
-            <span className="text-[12.5px] font-semibold" style={{ color: C.accent }}>{supersetFirst?.name} + pick a second exercise</span>
-          </div>
+        {pickingFor === "__superset__" && (
+          <SupersetSlots slots={ssSlots} activeSlot={ssActive} onSelectSlot={setSsActive} onClearSlot={clearSsSlot} onConfirm={confirmSs} />
         )}
         <div className="flex items-center gap-2 rounded-2xl px-3.5 py-3 mb-3" style={{ backgroundColor: C.surface }}>
           <Search size={17} style={{ color: C.ink3 }} />
@@ -459,7 +493,7 @@ export function NewDayScreen({ onSave, onSaveSide, onCancel, customExercises, on
                     <div className="text-[14px] font-semibold truncate" style={{ color: C.ink }}>{e.name}</div>
                     <div className="mt-1"><EquipPill equipment={e.equipment} /></div>
                   </div>
-                  <Plus size={16} style={{ color: C.accent }} />
+                  {pickingFor === "__superset__" ? <Link2 size={15} style={{ color: C.accent }} /> : <Plus size={16} style={{ color: C.accent }} />}
                 </button>
               ))}
             </div>
