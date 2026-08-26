@@ -92,7 +92,18 @@ export const HEATMAP_STATUS_SHORT = { gray: "—", green: "MEV", yellow: "MAV", 
 export const HEATMAP_DISPLAY_NAME = {
   Chest: "Chest", Shoulders: "Shoulders", Triceps: "Triceps", Biceps: "Biceps",
   Back: "Back", Core: "Core", Glutes: "Glutes", Quads: "Quads", Hamstrings: "Hamstrings", Calves: "Calves",
+  Legs: "Legs",
 };
+
+// Purely a drawing concern: on the body map the quad and hamstring shapes read as one
+// "Legs" area, since a leg day hits both and two differently-coloured halves of the same
+// limb is more noise than signal at silhouette scale. The data model keeps Quads and
+// Hamstrings apart — Training Distribution, the landmark editor, and every stored number
+// still treat them as separate muscle groups; only the SVG (and the panel you get when
+// tapping it) rolls them together.
+export const SILHOUETTE_MERGE = { Quads: "Legs", Hamstrings: "Legs" };
+export const MERGED_SOURCES = { Legs: ["Quads", "Hamstrings"] };
+export function silhouetteRegion(region) { return SILHOUETTE_MERGE[region] || region; }
 // Recovery fade: freshly-trained muscles render darker/duller; by ~96h they're back
 // to full brightness, signalling "ready to train again." Pure CSS filter, no re-render
 // of the SVG shape itself — only the filter value changes, so this is cheap to animate.

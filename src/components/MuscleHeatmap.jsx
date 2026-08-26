@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { X } from "lucide-react";
 import { C } from "../lib/constants";
-import { HEATMAP_DISPLAY_NAME, HEATMAP_REGIONS, HEATMAP_STATUS_COLOR, HEATMAP_STATUS_LABEL, HEATMAP_STATUS_SHORT, recoveryFilter } from "../lib/heatmapData";
+import { HEATMAP_DISPLAY_NAME, HEATMAP_REGIONS, HEATMAP_STATUS_COLOR, HEATMAP_STATUS_LABEL, HEATMAP_STATUS_SHORT, recoveryFilter, silhouetteRegion } from "../lib/heatmapData";
 import { BACK_SHAPES, FRONT_SHAPES, SILHOUETTE_PATH } from "../lib/muscleShapes";
 
 export function MusclePath({ shape, region, data, selected, onSelect }) {
@@ -71,14 +71,14 @@ export function MuscleHeatmap({ data, rangeDays, weeks }) {
           <div className="flex-1 max-w-[170px]">
             <svg viewBox="0 0 200 340" className="w-full">
               <BodyOutline />
-              {FRONT_SHAPES.map((sh, i) => <MusclePath key={sh.id || i} shape={sh} region={sh.region} data={data} selected={selected} onSelect={setSelected} />)}
+              {FRONT_SHAPES.map((sh, i) => <MusclePath key={sh.id || i} shape={sh} region={silhouetteRegion(sh.region)} data={data} selected={selected} onSelect={setSelected} />)}
             </svg>
             <div className="text-center text-[10.5px] font-semibold mt-1" style={{ color: "rgba(255,255,255,0.4)" }}>Front</div>
           </div>
           <div className="flex-1 max-w-[170px]">
             <svg viewBox="0 0 200 340" className="w-full">
               <BodyOutline />
-              {BACK_SHAPES.map((sh, i) => <MusclePath key={sh.id || i} shape={sh} region={sh.region} data={data} selected={selected} onSelect={setSelected} />)}
+              {BACK_SHAPES.map((sh, i) => <MusclePath key={sh.id || i} shape={sh} region={silhouetteRegion(sh.region)} data={data} selected={selected} onSelect={setSelected} />)}
             </svg>
             <div className="text-center text-[10.5px] font-semibold mt-1" style={{ color: "rgba(255,255,255,0.4)" }}>Back</div>
           </div>

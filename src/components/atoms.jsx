@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { Check, Cloud, CloudOff, Copy, RefreshCw, Sparkles, Trash2 } from "lucide-react";
+import { Check, Cloud, CloudOff, Copy, RefreshCw, Sparkles, Trash2, X } from "lucide-react";
 import { ACCENT, C, CARD_SHADOW } from "../lib/constants";
 
 export function Logo({ size = 32 }) {
@@ -103,18 +103,25 @@ export const TONE = {
 };
 
 
-export function InsightCard({ insight }) {
+export function InsightCard({ insight, onDismiss }) {
   const Icon = insight.icon || Sparkles;
   const tone = TONE[insight.tone] || TONE.accent;
   return (
-    <div className="rounded-2xl p-3.5 flex gap-3" style={{ backgroundColor: C.bg, border: `1px solid ${C.border}`, boxShadow: CARD_SHADOW }}>
+    <div className="rounded-2xl p-3.5 flex gap-3 relative" style={{ backgroundColor: C.bg, border: `1px solid ${C.border}`, boxShadow: CARD_SHADOW }}>
       <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ backgroundColor: tone.bg }}>
         <Icon size={17} style={{ color: tone.fg }} />
       </div>
-      <div className="min-w-0">
+      <div className="min-w-0" style={{ paddingRight: onDismiss ? 18 : 0 }}>
         <div className="text-[13.5px] font-semibold leading-snug" style={{ color: C.ink }}>{insight.title}</div>
         <div className="text-[12.5px] mt-0.5 leading-snug" style={{ color: C.ink2 }}>{insight.body}</div>
       </div>
+      {onDismiss && (
+        <button onClick={onDismiss} aria-label="Dismiss tip"
+          className="absolute top-1.5 right-1.5 w-6 h-6 rounded-full flex items-center justify-center"
+          style={{ backgroundColor: C.surface }}>
+          <X size={12} style={{ color: C.ink3 }} strokeWidth={2.5} />
+        </button>
+      )}
     </div>
   );
 }

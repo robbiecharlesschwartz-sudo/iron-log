@@ -4,7 +4,7 @@ import { C } from "../lib/constants";
 import { estDurationMin } from "../lib/insights";
 import { dayAccentColor } from "../lib/sessionUtils";
 
-export function CoachScreen({ insights, nextDay, onBack, onStartNext, profileName }) {
+export function CoachScreen({ insights, onDismissInsight, nextDay, onBack, onStartNext, profileName }) {
   const accent = nextDay ? dayAccentColor(nextDay) : C.accent;
   return (
     <div className="px-5 pt-5 pb-32">
@@ -26,7 +26,14 @@ export function CoachScreen({ insights, nextDay, onBack, onStartNext, profileNam
         </div>
       )}
 
-      <div className="flex flex-col gap-2.5">{insights.map((ins) => <InsightCard key={ins.id} insight={ins} />)}</div>
+      {insights.length === 0 ? (
+        <div className="rounded-2xl p-6 text-center" style={{ backgroundColor: C.surface }}>
+          <div className="text-[13px] font-semibold mb-1" style={{ color: C.ink2 }}>No tips right now</div>
+          <div className="text-[12px]" style={{ color: C.ink3 }}>You've cleared everything your coach had to say. New observations show up as you keep logging.</div>
+        </div>
+      ) : (
+        <div className="flex flex-col gap-2.5">{insights.map((ins) => <InsightCard key={ins.id} insight={ins} onDismiss={onDismissInsight ? () => onDismissInsight(ins) : undefined} />)}</div>
+      )}
 
       <div className="rounded-2xl p-4 mt-4 text-center" style={{ backgroundColor: C.surface }}>
         <div className="text-[12.5px]" style={{ color: C.ink3 }}>Your coach surfaces these observations automatically from everything you log.</div>

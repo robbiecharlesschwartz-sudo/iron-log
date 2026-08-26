@@ -6,7 +6,7 @@ import { WORKOUT_TEMPLATES } from "../lib/exerciseLibrary";
 import { computeStreak, estDurationMin, lastSessionForDay, weekStats } from "../lib/insights";
 import { dayAccentColor, relativeDays } from "../lib/sessionUtils";
 
-export function HomeScreen({ sessions, activeSession, days, onSelectDay, onResume, onDiscard, onNewDay, onOpenCoach, onOpenLibrary, insights, nextDay, onDeleteDay, onDuplicateDay, onChangePlan }) {
+export function HomeScreen({ sessions, activeSession, days, onSelectDay, onResume, onDiscard, onNewDay, onOpenCoach, onOpenLibrary, insights, onDismissInsight, nextDay, onDeleteDay, onDuplicateDay, onChangePlan }) {
   const wk = useMemo(() => weekStats(sessions), [sessions]);
   const streak = useMemo(() => computeStreak(sessions), [sessions]);
   const last = sessions[0];
@@ -84,7 +84,7 @@ export function HomeScreen({ sessions, activeSession, days, onSelectDay, onResum
             <button onClick={onOpenCoach} className="text-[12px] font-semibold flex items-center gap-0.5" style={{ color: C.accent }}>All <ChevronRight size={13} /></button>
           </div>
           <div className="flex flex-col gap-2.5">
-            {insights.slice(0, 2).map((ins) => <InsightCard key={ins.id} insight={ins} />)}
+            {insights.slice(0, 2).map((ins) => <InsightCard key={ins.id} insight={ins} onDismiss={onDismissInsight ? () => onDismissInsight(ins) : undefined} />)}
           </div>
         </div>
       )}

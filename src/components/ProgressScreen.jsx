@@ -5,7 +5,7 @@ import { MuscleHeatmap } from "./MuscleHeatmap";
 import { Sparkline } from "./atoms";
 import { ACCENT, C, CARD_SHADOW } from "../lib/constants";
 import { MUSCLE_ORDER } from "../lib/exerciseLibrary";
-import { HEATMAP_REGIONS, RANGE_OPTS, heatmapStatus, regionContributionsFor } from "../lib/heatmapData";
+import { HEATMAP_REGIONS, MERGED_SOURCES, RANGE_OPTS, heatmapStatus, regionContributionsFor } from "../lib/heatmapData";
 import { withinDays } from "../lib/insights";
 import { REGION_TO_MUSCLE, resolveLandmarks } from "../lib/landmarks";
 import { muscleForLift, normalizeLiftName } from "../lib/muscleMapping";
@@ -100,6 +100,34 @@ export function ProgressScreen({ sessions, bodyWeight, landmarkOverrides }) {
       const trendKind = prevSets > 0 ? "pct" : (sets > 0 ? "new" : "none");
       const trendPct = prevSets > 0 ? ((sets - prevSets) / prevSets) * 100 : 0;
       byRegion[region] = { region, sets, perWeek, status, landmarks: lm, daysAgo, topExercises: top, freqPerWeek, trendPct, trendKind };
+    }
+
+    // Extra entries the body map draws as one area (see SILHOUETTE_MERGE). These are
+    // derived from the real regions rather than replacing them, so nothing else that
+    // reads heatmapData — Training Distribution above all — sees a merged bucket.
+    for (const [mergedName, sources] of Object.entries(MERGED_SOURCES)) {
+      const sets = sources.reduce((a, r) => a + (cur.setCount[r] || 0), 0);
+      const prevSets = sources.reduce((a, r) => a + (prev.setCount[r] || 0), 0);
+      const perWeek = sets / weeks;
+      // Landmarks add: the combined area's floor and ceiling are the sum of its parts',
+      // which is the only reading that stays consistent with the summed set count.
+      const lm = sources.reduce((acc, r) => {
+        const l = landmarks[REGION_TO_MUSCLE[r]] || [0, 0, 0];
+        return [acc[0] + l[0], acc[1] + l[1], acc[2] + l[2]];
+      }, [0, 0, 0]);
+      const hits = sources.map((r) => cur.lastHit[r]).filter(Boolean);
+      const daysAgo = hits.length ? Math.floor((now - Math.max(...hits)) / 86400000) : null;
+      const combinedEx = {};
+      for (const r of sources) for (const [name, n] of Object.entries(cur.exerciseSets[r] || {})) combinedEx[name] = (combinedEx[name] || 0) + n;
+      const top = Object.entries(combinedEx).sort((a, b) => b[1] - a[1]).slice(0, 4).map(([name]) => name);
+      const dates = new Set();
+      for (const r of sources) for (const d of (cur.sessionDates[r] || [])) dates.add(d);
+      byRegion[mergedName] = {
+        region: mergedName, sets, perWeek, status: heatmapStatus(perWeek, lm), landmarks: lm, daysAgo,
+        topExercises: top, freqPerWeek: dates.size / weeks,
+        trendKind: prevSets > 0 ? "pct" : (sets > 0 ? "new" : "none"),
+        trendPct: prevSets > 0 ? ((sets - prevSets) / prevSets) * 100 : 0,
+      };
     }
     return byRegion;
   }, [scoped, sessions, rangeDays, effectiveWeeks, landmarks]);
