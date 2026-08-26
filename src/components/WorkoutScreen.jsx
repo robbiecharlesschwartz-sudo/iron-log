@@ -412,6 +412,10 @@ export function WorkoutScreen({ active, setActive, sessions, persistActive, onFi
   // header's "Start Set" (which picks the next undone set) or by any set row's Play
   // button (which picks that exact set) — null means no set is in progress.
   const [activeSet, setActiveSet] = useState(null);
+  // The exercise the workout is currently working through. Whatever set you start
+  // last claims focus, and targeting stays inside its superset group until that
+  // group runs out of sets — see nextUndone.
+  const [focusExId, setFocusExId] = useState(null);
   const [setStart, setSetStart] = useState(null);
   const [confirmFinish, setConfirmFinish] = useState(false);
   const [confirmDiscard, setConfirmDiscard] = useState(false);
@@ -478,22 +482,41 @@ export function WorkoutScreen({ active, setActive, sessions, persistActive, onFi
   }
 
   /* ---------------------------------------------------------------------- */
-  /* Helper: find the globally next uncompleted set, interleaving supersets */
+  /* Helper: find the next uncompleted set, interleaving supersets           */
+  /*                                                                        */
+  /* Starting a set parks focus on whatever the user picked, and focus wins  */
+  /* until that work is finished — so tapping Play on an exercise further    */
+  /* down the workout runs THAT exercise to completion instead of snapping   */
+  /* back to the earliest unfinished one. Focus is held on the whole         */
+  /* superset group, not a lone exercise, so jumping into one half of a pair */
+  /* still alternates with its partner the way a superset is meant to run.   */
+  /* Once the focused group is done, focus expires on its own and the plain  */
+  /* top-to-bottom order resumes.                                           */
   /* ---------------------------------------------------------------------- */
-  function nextUndone(exercises) {
-    for (const group of computeSupersetGroups(exercises)) {
-      if (group.length === 1) {
-        const e = group[0];
-        const i = e.sets.findIndex((s) => !s.done);
-        if (i !== -1) return { exId: e.exId, setIdx: i };
-        continue;
+  function firstUndoneIn(group) {
+    if (group.length === 1) {
+      const e = group[0];
+      const i = e.sets.findIndex((s) => !s.done);
+      return i === -1 ? null : { exId: e.exId, setIdx: i };
+    }
+    const maxRounds = Math.max(...group.map((e) => e.sets.length));
+    for (let r = 0; r < maxRounds; r++) {
+      for (const e of group) {
+        if (e.sets[r] && !e.sets[r].done) return { exId: e.exId, setIdx: r };
       }
-      const maxRounds = Math.max(...group.map((e) => e.sets.length));
-      for (let r = 0; r < maxRounds; r++) {
-        for (const e of group) {
-          if (e.sets[r] && !e.sets[r].done) return { exId: e.exId, setIdx: r };
-        }
-      }
+    }
+    return null;
+  }
+  function nextUndone(exercises, focusId = focusExId) {
+    const groups = computeSupersetGroups(exercises);
+    if (focusId) {
+      const focused = groups.find((g) => g.some((e) => e.exId === focusId));
+      const hit = focused && firstUndoneIn(focused);
+      if (hit) return hit;
+    }
+    for (const group of groups) {
+      const hit = firstUndoneIn(group);
+      if (hit) return hit;
     }
     return null; // all sets complete
   }
@@ -525,6 +548,7 @@ export function WorkoutScreen({ active, setActive, sessions, persistActive, onFi
       setActive(next); persistActive(next);
     }
     setActiveSet(target); setSetStart(Date.now());
+    setFocusExId(target.exId);
     // Jump to the exercise card that owns that set
     if (openExId !== target.exId) setOpenExId(target.exId);
   }
@@ -556,6 +580,10 @@ export function WorkoutScreen({ active, setActive, sessions, persistActive, onFi
     const afterTarget = nextUndone(exercises);
     const group = supersetGroupOf(exercises, target.exId);
     const stayingInGroup = handsOffWithinRound(group, target, afterTarget);
+    // Let focus go once the group it was pinning has no sets left, so it can't
+    // reclaim priority later if sets get added back to a finished exercise.
+    const focusedGroup = focusExId ? supersetGroupOf(exercises, focusExId) : null;
+    if (!focusedGroup || !firstUndoneIn(focusedGroup)) setFocusExId(null);
     let next;
     if (stayingInGroup) {
       // Mid-superset: go straight to the linked exercise, no rest inserted.
