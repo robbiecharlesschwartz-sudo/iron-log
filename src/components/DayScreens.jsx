@@ -7,9 +7,12 @@ import { estDurationMin } from "../lib/insights";
 import { dayAccentColor, relativeDays } from "../lib/sessionUtils";
 import { makeId } from "../lib/id";
 
-export function DayPreviewScreen({ day, sessions, onStart, onBack, onAddExercise, onRemoveAdded, onDeleteCustomDay, onReorderExercise, onRemoveExercise }) {
+export function DayPreviewScreen({ day, sessions, activeSession, onStart, onResume, onBack, onAddExercise, onRemoveAdded, onDeleteCustomDay, onReorderExercise, onRemoveExercise }) {
   const accent = dayAccentColor(day);
   const lastDone = sessions.find((s) => s.dayId === day.id);
+  // A session already running for THIS day turns the primary action into "resume" —
+  // starting again would rebuild it from the template and discard the logged sets.
+  const liveHere = !!activeSession && activeSession.dayId === day.id;
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [editMode, setEditMode] = useState(false);
 
@@ -77,19 +80,29 @@ export function DayPreviewScreen({ day, sessions, onStart, onBack, onAddExercise
         })}
       </div>
 
-      <button onClick={() => onStart(day)} className="w-full rounded-2xl py-4 text-[15px] font-semibold mb-3 flex items-center justify-center gap-2" style={{ backgroundColor: C.ink, color: "#fff" }}>
-        Start workout <ArrowUpRight size={17} />
-      </button>
+      {liveHere ? (
+        <button onClick={onResume} className="w-full rounded-2xl py-4 text-[15px] font-semibold mb-3 flex items-center justify-center gap-2" style={{ backgroundColor: C.good, color: "#fff" }}>
+          <Play size={16} fill="#fff" /> Resume workout
+        </button>
+      ) : (
+        <button onClick={() => onStart(day)} className="w-full rounded-2xl py-4 text-[15px] font-semibold mb-3 flex items-center justify-center gap-2" style={{ backgroundColor: C.ink, color: "#fff" }}>
+          Start workout <ArrowUpRight size={17} />
+        </button>
+      )}
 
-      {/* Same trade as the workout screen: adding an exercise stays inline (there's an
-          "Add" at the top of the list), and the floating corner goes to starting, which
-          otherwise sits below every exercise on a long day. */}
-      <button onClick={() => onStart(day)} aria-label="Start workout"
-        className="fixed right-5 z-30 flex items-center gap-2 rounded-full pl-4 pr-5 py-3.5"
-        style={{ bottom: "calc(env(safe-area-inset-bottom, 0px) + 24px)", backgroundColor: C.ink, color: "#fff", boxShadow: "0 10px 28px rgba(0,0,0,0.3)" }}>
-        <Play size={17} fill="#fff" />
-        <span className="text-[13.5px] font-semibold">Start workout</span>
-      </button>
+      {/* Adding an exercise stays inline (there's an "Add" at the top of the list) and
+          the floating bar goes to starting, which otherwise sits below every exercise on
+          a long day. It's gone the moment a workout is actually running — at that point
+          the thing to do is resume, and a stray tap here would have rebuilt the session
+          from the template and thrown away everything already logged. */}
+      {!activeSession && (
+        <button onClick={() => onStart(day)} aria-label="Start workout"
+          className="fixed left-5 right-5 z-30 flex items-center justify-center gap-2 rounded-2xl py-3.5"
+          style={{ bottom: "calc(env(safe-area-inset-bottom, 0px) + 24px)", backgroundColor: C.ink, color: "#fff", boxShadow: "0 10px 28px rgba(0,0,0,0.3)" }}>
+          <Play size={17} fill="#fff" />
+          <span className="text-[14px] font-semibold">Start workout</span>
+        </button>
+      )}
 
       {day.custom && (confirmDelete ? (
         <div className="flex items-center justify-center gap-3 text-[12px]">

@@ -427,7 +427,17 @@ export default function IronLog() {
   const liveAddTargetDay = addTargetDay ? allDaysById[addTargetDay.id] || addTargetDay : null;
 
   function handleSelectDay(day) { setSelectedDay(day); setScreen("daypreview"); }
-  function handleStartDay(day) { const fresh = buildActiveSession(allDaysById[day.id] || day); setActive(fresh); persistActive(fresh); setScreen("workout"); ensureNotifyPermission(); }
+  function handleStartDay(day) {
+    // Starting builds a fresh session from the template, so it would wipe a workout
+    // already in progress. Resume that day in place; only ask before abandoning a
+    // different day's live session.
+    if (active) {
+      if (active.dayId === day.id) { setScreen("workout"); return; }
+      if (!window.confirm(`You have ${active.dayTitle} in progress. Starting ${day.title} will discard it. Proceed?`)) return;
+    }
+    const fresh = buildActiveSession(allDaysById[day.id] || day);
+    setActive(fresh); persistActive(fresh); setScreen("workout"); ensureNotifyPermission();
+  }
   function handleResume() { setScreen("workout"); }
   function handleDiscardActive() { setActive(null); clearActiveStorage(); setScreen("home"); }
 
@@ -705,7 +715,7 @@ export default function IronLog() {
         {screen === "home" && <HomeScreen sessions={sessions} activeSession={active} days={allDays} onSelectDay={handleSelectDay} onResume={handleResume} onDiscard={handleDiscardActive} onNewDay={() => setScreen("newday")} onOpenCoach={() => setScreen("coach")} onOpenLibrary={() => setScreen("library")} insights={insights} onDismissInsight={handleDismissInsight} nextDay={nextDay} onDeleteDay={handleDeleteCustomDay} onDuplicateDay={handleDuplicateDay} onChangePlan={() => setScreen("changeplan")} />}
         {screen === "library" && <LibraryScreen sessions={sessions} customExercises={customExercises} onBack={() => setScreen("home")} onNewCustomExercise={handleNewCustomExercise} />}
         {screen === "changeplan" && <ChangePlanScreen currentDayCount={allDays.length} onSelect={handleChangePlan} onBack={() => setScreen("home")} />}
-        {screen === "daypreview" && liveSelectedDay && <DayPreviewScreen day={liveSelectedDay} sessions={sessions} onStart={handleStartDay} onBack={() => setScreen("home")} onAddExercise={handleAddExercise} onRemoveAdded={handleRemoveAdded} onDeleteCustomDay={handleDeleteCustomDay} onReorderExercise={handleReorderExercise} onRemoveExercise={handleRemoveExercisePreview} />}
+        {screen === "daypreview" && liveSelectedDay && <DayPreviewScreen day={liveSelectedDay} sessions={sessions} activeSession={active} onStart={handleStartDay} onResume={handleResume} onBack={() => setScreen("home")} onAddExercise={handleAddExercise} onRemoveAdded={handleRemoveAdded} onDeleteCustomDay={handleDeleteCustomDay} onReorderExercise={handleReorderExercise} onRemoveExercise={handleRemoveExercisePreview} />}
         {screen === "addexercise" && liveAddTargetDay && <AddExerciseScreen day={liveAddTargetDay} onAdd={handleConfirmAdd} onBack={() => setScreen(addReturnTo)} customExercises={customExercises} />}
         {screen === "calendar" && <CalendarScreen sessions={sessions} onOpenDay={openCalendarDay} />}
         {screen === "daydetail" && calendarDay && <DayDetailScreen daySessions={calendarDay.daySessions} date={calendarDay.date} onBack={() => setScreen("calendar")} />}
