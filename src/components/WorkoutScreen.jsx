@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Activity, ArrowLeft, Check, ChevronDown, Clock, History, Link2, Pause, Play, Plus, SkipForward, Trash2, TrendingDown, TrendingUp, User, X } from "lucide-react";
+import { Activity, ArrowLeft, Check, ChevronDown, Clock, History, Link2, Pause, Play, Plus, Save, SkipForward, Trash2, TrendingDown, TrendingUp, User, X } from "lucide-react";
 import { DndContext, DragOverlay, PointerSensor, TouchSensor, closestCenter, useSensor, useSensors } from "@dnd-kit/core";
 import { SortableContext, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
@@ -245,19 +245,6 @@ export function ExerciseCard({ exercise, prev, accent, isOpen, onToggle, onLogSe
 /* ====================================================================== */
 /* WORKOUT — white, sticky Finish at the bottom                          */
 /* ====================================================================== */
-/* ── Floating "add exercise" button ──────────────────────────────────── */
-
-
-export function FloatingAddButton({ onClick, label = "Add exercise", bottom = 90 }) {
-  return (
-    <button onClick={onClick} aria-label={label}
-      className="fixed right-5 z-30 flex items-center gap-2 rounded-full pl-4 pr-5 py-3.5"
-      style={{ bottom: `calc(env(safe-area-inset-bottom, 0px) + ${bottom}px)`, backgroundColor: C.ink, color: "#fff", boxShadow: "0 10px 28px rgba(0,0,0,0.3)" }}>
-      <Plus size={18} /><span className="text-[13.5px] font-semibold">{label}</span>
-    </button>
-  );
-}
-
 /* ── Drag-to-reorder + swipe-to-delete list ───────────────────────────────
    Geometry-based: the dragged card follows the finger exactly, sibling cards
    slide out of the way in real time, and the drop lands where you see the gap. */
@@ -833,7 +820,19 @@ export function WorkoutScreen({ active, setActive, sessions, persistActive, onFi
         </button>
       </div>
 
-      <FloatingAddButton onClick={onAddExercise} bottom={24} />
+      {/* Start the next set from anywhere in the list, without scrolling back up to the
+          header or hunting for that set's own Play button. It's only here while nothing
+          is running — once a set starts, the header timer takes over and this gets out
+          of the way. "Add exercise" deliberately stays inline at the end of the list
+          rather than floating, so the thumb corner belongs to one action only. */}
+      {!noSets && !allDoneFlag && !inSet && (
+        <button onClick={handleStartSet} aria-label={`Start set ${targetSetNum}`}
+          className="fixed right-5 z-30 flex items-center gap-2 rounded-full pl-4 pr-5 py-3.5"
+          style={{ bottom: "calc(env(safe-area-inset-bottom, 0px) + 24px)", backgroundColor: C.ink, color: "#fff", boxShadow: "0 10px 28px rgba(0,0,0,0.3)" }}>
+          <Play size={17} fill="#fff" />
+          <span className="text-[13.5px] font-semibold">Start Set {targetSetNum}</span>
+        </button>
+      )}
 
       {/* Confirm finish modal */}
       {confirmFinish && (
@@ -854,9 +853,17 @@ export function WorkoutScreen({ active, setActive, sessions, persistActive, onFi
             ) : (
               <>
                 <h3 className="text-[18px] font-bold tracking-tight mb-1" style={{ color: C.ink }}>Finish this workout?</h3>
-                <p className="text-[13px] mb-5" style={{ color: C.ink3 }}>You logged {setsLogged} of {setsPlanned} sets. You can reopen and continue this session later from History if you need to.</p>
-                <button onClick={() => { setConfirmFinish(false); onFinish(active); }} className="w-full rounded-2xl py-3.5 text-[15px] font-semibold mb-2.5 flex items-center justify-center gap-2" style={{ backgroundColor: C.good, color: "#fff" }}>
-                  <Check size={16} /> Yes, finish workout
+                <p className="text-[13px] mb-4" style={{ color: C.ink3 }}>You logged {setsLogged} of {setsPlanned} sets. Either way this session is saved to your history — the choice below is only about whether {active.dayTitle} itself keeps the exercise list you just trained.</p>
+                {/* Both buttons finish and log the session identically. They differ only in
+                    whether the exercise list you ended up with — reordered, added to, or
+                    trimmed — is written back over the day's saved list. */}
+                <button onClick={() => { setConfirmFinish(false); onFinish(active, false); }} className="w-full rounded-2xl py-3 mb-2.5 flex flex-col items-center justify-center gap-0.5" style={{ backgroundColor: C.good, color: "#fff" }}>
+                  <span className="text-[14.5px] font-semibold flex items-center gap-2"><Check size={16} /> End workout, don't save changes</span>
+                  <span className="text-[11px] leading-tight" style={{ opacity: 0.75 }}>{active.dayTitle} keeps its current exercise list</span>
+                </button>
+                <button onClick={() => { setConfirmFinish(false); onFinish(active, true); }} className="w-full rounded-2xl py-3 mb-2.5 flex flex-col items-center justify-center gap-0.5" style={{ backgroundColor: C.ink, color: "#fff" }}>
+                  <span className="text-[14.5px] font-semibold flex items-center gap-2"><Save size={15} /> Save changes to workout</span>
+                  <span className="text-[11px] leading-tight" style={{ opacity: 0.7 }}>Order, added and removed exercises stick to {active.dayTitle}</span>
                 </button>
                 <button onClick={() => setConfirmFinish(false)} className="w-full rounded-2xl py-3 text-[14px] font-semibold mb-2.5" style={{ backgroundColor: C.surface, color: C.ink2 }}>
                   Keep training

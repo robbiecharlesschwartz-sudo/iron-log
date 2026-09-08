@@ -1,6 +1,5 @@
 import { useMemo, useState } from "react";
-import { Activity, ArrowLeft, ArrowUpRight, ChevronDown, ChevronUp, Dumbbell, Link2, Plus, Search, Trash2, X } from "lucide-react";
-import { FloatingAddButton } from "./WorkoutScreen";
+import { Activity, ArrowLeft, ArrowUpRight, ChevronDown, ChevronUp, Dumbbell, Link2, Play, Plus, Search, Trash2, X } from "lucide-react";
 import { CatTag, EquipPill } from "./atoms";
 import { ACCENT, C } from "../lib/constants";
 import { EQUIPMENT_FILTERS, MUSCLE_ORDER, autoMuscleForDay, ex, mergeLibrary } from "../lib/exerciseLibrary";
@@ -82,7 +81,15 @@ export function DayPreviewScreen({ day, sessions, onStart, onBack, onAddExercise
         Start workout <ArrowUpRight size={17} />
       </button>
 
-      <FloatingAddButton onClick={() => onAddExercise(day)} bottom={24} />
+      {/* Same trade as the workout screen: adding an exercise stays inline (there's an
+          "Add" at the top of the list), and the floating corner goes to starting, which
+          otherwise sits below every exercise on a long day. */}
+      <button onClick={() => onStart(day)} aria-label="Start workout"
+        className="fixed right-5 z-30 flex items-center gap-2 rounded-full pl-4 pr-5 py-3.5"
+        style={{ bottom: "calc(env(safe-area-inset-bottom, 0px) + 24px)", backgroundColor: C.ink, color: "#fff", boxShadow: "0 10px 28px rgba(0,0,0,0.3)" }}>
+        <Play size={17} fill="#fff" />
+        <span className="text-[13.5px] font-semibold">Start workout</span>
+      </button>
 
       {day.custom && (confirmDelete ? (
         <div className="flex items-center justify-center gap-3 text-[12px]">

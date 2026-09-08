@@ -445,9 +445,17 @@ export default function IronLog() {
       return exObj;
     };
     const added = libEx2 ? [build(libEx, true), build(libEx2, false)] : [build(libEx, false)];
+    // Adding mid-workout only touches the live session. Whether it sticks to the day is
+    // decided once, at the end, by the finish sheet — so an exercise thrown in for today
+    // doesn't silently rewrite the template the way it used to. Adding from Day Preview
+    // is an edit of the day itself, so that path still writes through immediately.
+    if (addReturnTo === "workout" && active && active.dayId === dayId) {
+      const next = { ...active, exercises: [...active.exercises, ...added.map(toActiveExercise)] };
+      setActive(next); persistActive(next); setScreen("workout");
+      return;
+    }
     setDayAdds((prev) => { const next = { ...prev, [dayId]: [...(prev[dayId] || []), ...added] }; saveDayAdds(next); return next; });
-    if (addReturnTo === "workout" && active && active.dayId === dayId) { const next = { ...active, exercises: [...active.exercises, ...added.map(toActiveExercise)] }; setActive(next); persistActive(next); setScreen("workout"); }
-    else setScreen("daypreview");
+    setScreen("daypreview");
   }
   function handleRemoveAdded(dayId, exId) { setDayAdds((prev) => { const next = { ...prev, [dayId]: clearDayLinks((prev[dayId] || []).filter((e) => e.id !== exId)) }; if (next[dayId].length === 0) delete next[dayId]; saveDayAdds(next); return next; }); }
 
@@ -486,7 +494,52 @@ export default function IronLog() {
     commitDayExercises(dayId, clearDayLinks(day.exercises.filter(e => e.id !== exId)));
   }
 
-  function handleFinish(session) {
+  // Turn a live session exercise back into a day-template one. The session carries the
+  // lift actually performed; the day keeps its own `best` + substitutes, so swapping to a
+  // sub for one session doesn't quietly become the day's new default lift.
+  function toDayExercise(e) {
+    const cardio = isCardioExercise(e);
+    return {
+      id: e.exId,
+      section: e.section || "",
+      best: e.best || e.selectedLift,
+      subs: e.subs || [],
+      kind: e.kind || (cardio ? "cardio" : "lifting"),
+      muscle: e.muscle || e.section || "",
+      setsLabel: e.setsLabel,
+      repsLabel: e.repsLabel,
+      rest: e.rest,
+      prefill: cardio ? 0 : (e.sets || []).length,
+      linkedToNext: !!e.linkedToNext,
+    };
+  }
+  // Only write if the list genuinely moved — otherwise "save changes" on an untouched
+  // built-in day would convert it to a custom day for no reason.
+  function dayListChanged(dayExercises, sessionExercises) {
+    if (dayExercises.length !== sessionExercises.length) return true;
+    return sessionExercises.some((e, i) => {
+      const d = dayExercises[i];
+      return !d || d.id !== e.exId || !!d.linkedToNext !== !!e.linkedToNext || (d.prefill || 0) !== (isCardioExercise(e) ? 0 : (e.sets || []).length);
+    });
+  }
+  function saveExerciseListToDay(session) {
+    const exercises = session.exercises.map(toDayExercise);
+    const planDay = allDaysById[session.dayId];
+    if (planDay) {
+      if (dayListChanged(planDay.exercises, session.exercises)) commitDayExercises(session.dayId, exercises);
+      return;
+    }
+    // Side workouts live in their own list and never reach allDaysById, so they'd
+    // silently ignore the save without this branch.
+    const side = sideDays.find((d) => d.id === session.dayId);
+    if (side && dayListChanged(side.exercises, session.exercises)) {
+      const next = sideDays.map((d) => d.id === session.dayId ? { ...d, exercises } : d);
+      setSideDays(next); saveSideDays(next);
+    }
+  }
+
+  function handleFinish(session, saveToDay) {
+    if (saveToDay) saveExerciseListToDay(session);
     const now = Date.now();
     const acc = committedAccum(session, now);
     const record = {
