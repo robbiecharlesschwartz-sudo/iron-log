@@ -177,7 +177,7 @@ export const EXERCISE_LIBRARY_RAW = [
   lx("Hip Thrust", "Glutes", "Barbell", 120),
   lx("Glute Bridge", "Glutes", "Barbell", 90),
   lx("Cable Kickback", "Glutes", "Cable", 60),
-  lx("Step-Ups", "Glutes", "Dumbbell", 75),
+  lx("Step-Ups", "Quads", "Dumbbell", 75),
   // Calves
   lx("Standing Calf Raise", "Calves", "Machine", 60),
   lx("Seated Calf Raise", "Calves", "Machine", 60),
@@ -280,7 +280,7 @@ export const EXERCISE_LIBRARY_RAW = [
   lx("Barbell Hip Thrust", "Glutes", "Barbell", 120),
   lx("Cable Kickback", "Glutes", "Cable", 45),
   lx("Glute Bridge", "Glutes", "Barbell", 75),
-  lx("Reverse Lunge", "Glutes", "Dumbbell", 75),
+  lx("Reverse Lunge", "Quads", "Dumbbell", 75),
   lx("Sumo Deadlift", "Glutes", "Barbell", 180),
 
   // More Calves
@@ -309,7 +309,7 @@ export const EXERCISE_LIBRARY_RAW = [
   lx("Cable Press", "Chest", "Cable", 90),
   lx("Single-Arm Cable Fly", "Chest", "Cable", 60),
   lx("Incline Cable Fly", "Chest", "Cable", 75),
-  lx("Dumbbell Pullover", "Chest", "Dumbbell", 90),
+  lx("Dumbbell Pullover", "Back", "Dumbbell", 90),
   // Back
   lx("Weighted Pull-Up", "Back", "Bodyweight", 150),
   lx("Neutral-Grip Pull-Up", "Back", "Bodyweight", 120),
@@ -319,7 +319,7 @@ export const EXERCISE_LIBRARY_RAW = [
   lx("Wide-Grip Cable Row", "Back", "Cable", 90),
   lx("Single-Arm Lat Pulldown", "Back", "Cable", 75),
   lx("Reverse-Grip Lat Pulldown", "Back", "Cable", 90),
-  lx("Face Pull", "Back", "Cable", 60),
+  lx("Face Pull", "Shoulders", "Cable", 60),
   lx("Snatch-Grip Deadlift", "Back", "Barbell", 180),
   lx("Trap Bar Deadlift", "Back", "Barbell", 180),
   lx("Barbell Shrug", "Back", "Barbell", 75),
@@ -362,7 +362,7 @@ export const EXERCISE_LIBRARY_RAW = [
   lx("Romanian Deadlift", "Hamstrings", "Barbell", 150),
   lx("Single-Leg RDL", "Hamstrings", "Dumbbell", 90),
   lx("Glute-Ham Raise", "Hamstrings", "Bodyweight", 90),
-  lx("Cable Pull-Through", "Hamstrings", "Cable", 75),
+  lx("Cable Pull-Through", "Glutes", "Cable", 75),
   lx("Standing Leg Curl", "Hamstrings", "Machine", 60),
   // Glutes
   lx("Single-Leg Hip Thrust", "Glutes", "Bodyweight", 75),
