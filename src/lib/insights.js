@@ -1,5 +1,6 @@
 import { Activity, Flame, Heart, Sparkles, Target, Zap } from "lucide-react";
 import { muscleForLift } from "./muscleMapping";
+import { lastPerformanceFor } from "./sessionUtils";
 
 export function withinDays(iso, days) {
   return Date.now() - new Date(iso).getTime() <= days * 86400000;
@@ -47,12 +48,40 @@ export function lastSessionForDay(sessions, dayId) {
 }
 
 
-export function topSetForLift(sessions, exId) {
+// Which lift the user actually performed in a given day-template slot, most recently.
+// Every template slot has substitutes ("Back Squat" offers Leg Press / Hack Squat), so
+// the slot's headline lift is frequently NOT the one that got logged.
+export function lastLiftForSlot(sessions, exId) {
+  let best = null;
   for (const s of sessions) {
-    const e = s.exercises.find((x) => x.exId === exId && x.sets.length);
-    if (e) return { date: s.date, top: Math.max(...e.sets.map((st) => Number(st.weight) || 0)), reps: Math.max(...e.sets.map((st) => Number(st.reps) || 0)) };
+    for (const e of (s.exercises || [])) {
+      if (e.exId !== exId || !(e.sets || []).length || !e.selectedLift) continue;
+      const t = new Date(s.date).getTime();
+      if (!best || t > best.t) best = { t, lift: e.selectedLift };
+    }
   }
-  return null;
+  return best ? best.lift : null;
+}
+
+// Heaviest set the user has actually logged FOR THIS LIFT, by name.
+//
+// This used to look the exercise up by day-template slot id, which meant the weight
+// came from whatever was logged in that slot while the label came from the slot's
+// headline lift — so logging Leg Press at 360 in the "Back Squat" slot produced
+// "Back Squat: aim for 365 lb. Last time you hit 360" for someone who has never
+// squatted. Going through lastPerformanceFor ties the number to the lift's own name.
+//
+// Reps are taken from the top-weight set specifically. Taking max weight and max reps
+// independently invents a set that never happened: 315x3 and 225x12 in the same
+// exercise would report "315 lb x 12".
+export function topSetForLift(sessions, liftName) {
+  const perf = lastPerformanceFor(sessions, liftName);
+  if (!perf || !perf.sets.length) return null;
+  const top = Math.max(...perf.sets.map((st) => Number(st.weight) || 0));
+  if (!(top > 0)) return null;
+  const reps = Math.max(...perf.sets.filter((st) => (Number(st.weight) || 0) === top).map((st) => Number(st.reps) || 0));
+  if (!(reps > 0)) return null;
+  return { date: perf.date, top, reps, lift: perf.lift };
 }
 
 
@@ -63,14 +92,17 @@ export function generateInsights(sessions, allDaysById, nextDay) {
     return out;
   }
 
-  // 1 — progressive overload on the next workout's primary lift
+  // 1 — progressive overload on the next workout's primary lift. Advise on the lift
+  // actually performed in that slot (the user may always swap in a substitute), and
+  // label it with the name attached to the very record the number came from. If there
+  // is no logged history for it, say nothing rather than invent a starting point.
   if (nextDay && nextDay.exercises[0]) {
     const main = nextDay.exercises[0];
-    const last = topSetForLift(sessions, main.id);
-    if (last && last.top > 0) {
+    const last = topSetForLift(sessions, lastLiftForSlot(sessions, main.id) || main.best);
+    if (last) {
       out.push({
         id: "overload", icon: Target, tone: "accent",
-        title: `${main.best}: aim for ${last.top + 5} lb`,
+        title: `${last.lift}: aim for ${last.top + 5} lb`,
         body: `Last time you hit ${last.top} lb × ${last.reps}. If ${last.reps} felt solid, add 5 lb today — otherwise match the weight and chase one more rep first.`,
       });
     }

@@ -16,7 +16,9 @@ export function MusclePath({ shape, region, data, selected, onSelect }) {
     strokeWidth: selected === region ? 2 : 1,
     strokeLinejoin: "round",
     opacity: selected && selected !== region ? 0.5 : 1,
-    onClick: () => onSelect(region),
+    // Stop the bubble: the dark panel behind the bodies clears the selection when
+    // tapped, and without this a tap on a muscle would immediately undo itself.
+    onClick: (e) => { e.stopPropagation(); onSelect(region); },
   };
   if (shape.type === "rect") return <rect x={shape.x} y={shape.y} width={shape.w} height={shape.h} rx={shape.rx ?? 10} {...common} />;
   return <path d={shape.d} {...common} />;
@@ -61,7 +63,10 @@ export function MuscleHeatmap({ data, rangeDays, weeks }) {
 
   return (
     <div className="px-5 pt-2">
-      <div className="rounded-3xl p-4 mb-4" style={{ backgroundColor: "#15171C" }}>
+      {/* Tapping the dark space around the bodies drops the current selection and puts
+          the map back to its overview — the muscle shapes stop the event, so only
+          genuine "outside" taps land here. */}
+      <div className="rounded-3xl p-4 mb-4" style={{ backgroundColor: "#15171C" }} onClick={() => setSelected(null)}>
         {!hasAnyData && (
           <div className="text-center py-3 mb-2 text-[12px]" style={{ color: "rgba(255,255,255,0.45)" }}>
             No sets logged in this range yet — the map will light up once you start training.
