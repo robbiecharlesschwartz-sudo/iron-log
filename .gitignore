@@ -1,1 +1,10 @@
 node_modules/
+
+# Claude Code: share project config across machines, keep machine-local settings out
+.claude/settings.local.json
+.claude/*.local.json
+
+# Secrets — never sync these through GitHub
+.env
+.env.*
+!.env.example
