@@ -57,8 +57,49 @@ export function muscleForLift(name) {
   return "Other";
 }
 
-/* Normalize lift names to a canonical form for cross-workout deduplication */
+/* Normalize lift names to a canonical form for cross-workout deduplication.
 
+   A synonym may only ever collapse different SPELLINGS of one exercise — "rdl" for
+   Romanian Deadlift, "face pull" for "Face Pulls". It must never collapse two
+   exercises that the library lists separately: doing that makes one lift's history
+   appear under the other's name, which is how Cable Crossover ended up showing
+   "Last time: 160 lb x 10 (Cable Fly)" for sets that were never Cable Crossovers.
+
+   The table is filtered against the library below rather than just trusted, so a
+   future entry that quietly merges two real exercises is dropped instead of
+   silently rewriting someone's history. */
+const RAW_SYNONYMS = {
+  "seated dumbbell press": "seated dumbbell shoulder press",
+  "overhead press": "barbell overhead press",
+  "ohp": "barbell overhead press",
+  "pull up": "pull-ups", "pullup": "pull-ups", "pull-up": "pull-ups",
+  "weighted pull up": "weighted pull-ups", "weighted pull-up": "weighted pull-ups",
+  "rdl": "romanian deadlift",
+  "face pull": "face pulls",
+  "barbell back squat": "back squat", "barbell squat": "back squat",
+  "incline db press": "incline dumbbell press",
+  "bb row": "barbell row",
+};
+
+// Equal once punctuation, spacing and a trailing plural are ignored — i.e. the same
+// exercise typed two ways, rather than two different exercises.
+function sameNameDifferentSpelling(a, b) {
+  const canon = (s) => s.replace(/[^a-z0-9]/g, "").replace(/s$/, "");
+  return canon(a) === canon(b);
+}
+
+const SYNONYMS = (() => {
+  const libNames = new Set(EXERCISE_LIBRARY.map((e) => e.name.toLowerCase()));
+  const out = {};
+  for (const [from, to] of Object.entries(RAW_SYNONYMS)) {
+    if (from === to) continue;
+    // Both sides exist as their own library exercise and aren't mere spellings of
+    // each other → they are distinct movements. Refuse to merge them.
+    if (libNames.has(from) && libNames.has(to) && !sameNameDifferentSpelling(from, to)) continue;
+    out[from] = to;
+  }
+  return out;
+})();
 
 export function normalizeLiftName(name) {
   if (!name) return "";
@@ -67,25 +108,7 @@ export function normalizeLiftName(name) {
   s = s.replace(/\bdb\b/g, "dumbbell").replace(/\bbb\b/g, "barbell").replace(/\bez\b/g, "ez-bar");
   // Strip parenthetical modifiers that don't change the exercise identity
   s = s.replace(/\s*\([^)]*\)/g, "").trim();
-  // Common synonym mappings → canonical name
-  const MAP = {
-    "seated dumbbell press": "seated dumbbell shoulder press",
-    "overhead press": "barbell overhead press",
-    "ohp": "barbell overhead press",
-    "pull up": "pull-ups", "pullup": "pull-ups", "pull-up": "pull-ups",
-    "weighted pull up": "weighted pull-ups", "weighted pull-up": "weighted pull-ups",
-    "romanian deadlift": "romanian deadlift", "rdl": "romanian deadlift",
-    "dumbbell rdl": "dumbbell rdl",
-    "back squat": "back squat", "barbell back squat": "back squat",
-    "barbell squat": "back squat",
-    "incline db press": "incline dumbbell press",
-    "cable fly": "cable fly", "cable crossover": "cable fly",
-    "face pull": "face pulls",
-    "lat pulldown": "lat pulldown", "wide-grip lat pulldown": "lat pulldown",
-    "barbell row": "barbell row", "bb row": "barbell row",
-  };
-  // Check exact canonical map
-  if (MAP[s]) s = MAP[s];
+  if (SYNONYMS[s]) s = SYNONYMS[s];
   // Normalize plural/singular variation
   s = s.replace(/\bpresses\b/g, "press").replace(/\bcurls\b/g, "curl")
        .replace(/\brows\b/g, "row").replace(/\braises\b/g, "raise");
