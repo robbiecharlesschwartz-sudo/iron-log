@@ -4,8 +4,9 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "build": "node build.mjs && tailwindcss -i ./src/input.css -o ./app.css --minify",
-    "dev": "node build.mjs --watch"
+    "build": "node build.mjs && tailwindcss -i ./src/input.css -o ./app.css --minify && node stamp-sw.mjs",
+    "dev": "node build.mjs --watch",
+    "test": "node run-tests.mjs"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

@@ -21,6 +21,7 @@ import { normalizeLiftName } from "./lib/muscleMapping";
 import { ensureNotifyPermission } from "./lib/notifications";
 import { buildActiveSession, committedAccum, isCardioExercise, migrateSession, pruneSessions, repairLegacyDayIds, sessionVolume, toActiveExercise } from "./lib/sessionUtils";
 import { makeId } from "./lib/id";
+import { downloadBackup, mergeBackup, parseBackup } from "./lib/backup";
 
 export default function IronLog() {
   const auth = useAuth();
@@ -279,6 +280,44 @@ export default function IronLog() {
   // Shared: after any single cloud write, actually look at whether it succeeded and
   // reflect that in the UI — this is what makes the sync badge trustworthy instead of
   // optimistic. Only updates state on genuine failure or a fresh confirmed success.
+  function handleBackup() {
+    try {
+      downloadBackup({ sessions, customDays, dayAdds, customExercises, sideDays, landmarkOverrides, dismissedInsights, profile, profileName, userEmail: auth.user?.email });
+    } catch (e) {
+      alert("Backup failed: " + (e && e.message ? e.message : e));
+    }
+  }
+
+  async function handleRestore(file) {
+    let backup;
+    try { backup = parseBackup(await file.text()); }
+    catch (e) { alert(e.message); return; }
+
+    const merged = mergeBackup({ sessions, customDays, dayAdds, customExercises, sideDays, landmarkOverrides, dismissedInsights, profile }, backup);
+    const taken = new Date(backup.exportedAt).toLocaleDateString();
+    const summary = merged.addedSessions > 0
+      ? `adding ${merged.addedSessions} session${merged.addedSessions === 1 ? "" : "s"} you don't currently have`
+      : "adding no new sessions";
+    if (!window.confirm(`Restore the backup from ${taken}?\n\nSessions merge — ${summary}, and nothing logged since is deleted.\n\nYour plan, custom exercises, side workouts and volume benchmarks WILL be replaced by the backup's.`)) return;
+
+    // Persist through the same paths a normal edit uses, so local, per-account keys and
+    // the cloud all stay in step rather than being written behind their own helpers' backs.
+    setSessions(merged.sessions); saveSessions(merged.sessions);
+    setCustomDays(merged.customDays); saveCustomDays(merged.customDays);
+    setDayAdds(merged.dayAdds); saveDayAdds(merged.dayAdds);
+    setCustomExercises(merged.customExercises); saveCustomExercises(merged.customExercises);
+    setSideDays(merged.sideDays); saveSideDays(merged.sideDays);
+    handleUpdateLandmarks(merged.landmarkOverrides);
+    setDismissedInsights(merged.dismissedInsights);
+    window.storage.set(keyFor(DISMISSED_KEY, auth.user), JSON.stringify(merged.dismissedInsights)).catch(() => {});
+    if (uid) fbSaveData(uid, "dismissedInsights", merged.dismissedInsights).then(reportSyncResult);
+    setProfile(merged.profile);
+    window.storage.set(keyFor(PROFILE_KEY, auth.user), JSON.stringify(merged.profile)).catch(() => {});
+    if (uid) fbSaveData(uid, "profile", merged.profile).then(reportSyncResult);
+
+    alert(`Restored. You now have ${merged.sessions.length} sessions.`);
+  }
+
   function reportSyncResult(result) {
     if (!result) return;
     if (result.ok === false) { setSyncStatus("failed"); setSyncError(result.error || "Unknown error"); }
@@ -722,7 +761,7 @@ export default function IronLog() {
         {screen === "progress" && <ProgressScreen sessions={sessions} bodyWeight={profile.bodyWeight} landmarkOverrides={landmarkOverrides} />}
         {screen === "history" && <HistoryScreen sessions={sessions} onDeleteSessions={handleDeleteSessions} onContinue={handleContinueWorkout} onMerge={handleMergeSessions} onEdit={(s) => { setEditingSession(s); setScreen("editsession"); }} />}
         {screen === "editsession" && editingSession && <EditSessionScreen session={editingSession} onSave={handleSaveEditedSession} onBack={() => { setEditingSession(null); setScreen("history"); }} onDelete={(id) => { handleDeleteSessions([id]); setEditingSession(null); setScreen("history"); }} />}
-        {screen === "profile" && <ProfileScreen sessions={sessions} customDays={customDays} dayAdds={dayAdds} user={auth.user} auth={auth} syncStatus={syncStatus} syncError={syncError} lastSyncedAt={lastSyncedAt} onForceSync={handleForceSync} profileName={profileName} firstName={profile.firstName} lastName={profile.lastName} onUpdateName={handleUpdateName} bodyWeight={profile.bodyWeight} onUpdateBodyWeight={handleUpdateBodyWeight} landmarkOverrides={landmarkOverrides} onUpdateLandmarks={handleUpdateLandmarks} />}
+        {screen === "profile" && <ProfileScreen sessions={sessions} customDays={customDays} dayAdds={dayAdds} user={auth.user} auth={auth} syncStatus={syncStatus} syncError={syncError} lastSyncedAt={lastSyncedAt} onForceSync={handleForceSync} profileName={profileName} firstName={profile.firstName} lastName={profile.lastName} onUpdateName={handleUpdateName} bodyWeight={profile.bodyWeight} onUpdateBodyWeight={handleUpdateBodyWeight} landmarkOverrides={landmarkOverrides} onUpdateLandmarks={handleUpdateLandmarks} onBackup={handleBackup} onRestore={handleRestore} />}
         {screen === "coach" && <CoachScreen insights={insights} onDismissInsight={handleDismissInsight} nextDay={nextDay} onBack={() => setScreen("home")} onStartNext={handleSelectDay} profileName={profileName} />}
         {screen === "workout" && active && <WorkoutScreen active={active} setActive={setActive} sessions={sessions} persistActive={persistActive} onFinish={handleFinish} onExit={() => setScreen("home")} onAddExercise={handleAddExerciseFromWorkout} onDiscard={handleDiscardActive} />}
         {screen === "newday" && <NewDayScreen onSave={handleSaveNewDay} onSaveSide={handleSaveSideDay} onCancel={() => setScreen("home")} customExercises={customExercises} onNewCustomExercise={handleNewCustomExercise} sideDays={sideDays} onStartSideDay={handleStartSideDay} onDeleteSideDay={handleDeleteSideDay} />}

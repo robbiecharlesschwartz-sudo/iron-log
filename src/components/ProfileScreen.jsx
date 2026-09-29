@@ -1,5 +1,5 @@
-import { useMemo, useState } from "react";
-import { Activity, Award, Clock, Download, Flame, LogOut, RefreshCw, Search, SlidersHorizontal, TrendingUp, User, X } from "lucide-react";
+import { useMemo, useRef, useState } from "react";
+import { Activity, Award, Clock, Download, Flame, LogOut, RefreshCw, Search, SlidersHorizontal, TrendingUp, Upload, User, X } from "lucide-react";
 import { AuthInline } from "./AuthScreen";
 import { SyncBadge } from "./atoms";
 import { C, CARD_SHADOW, RETENTION_DAYS } from "../lib/constants";
@@ -9,8 +9,9 @@ import { computeStreak, withinDays } from "../lib/insights";
 import { DEFAULT_LANDMARKS, MUSCLE_GROUPS, resolveLandmarks } from "../lib/landmarks";
 import { fmtClock } from "../lib/sessionUtils";
 
-export function ProfileScreen({ sessions, customDays, dayAdds, user, auth, syncStatus, syncError, lastSyncedAt, onForceSync, profileName, firstName, lastName, onUpdateName, bodyWeight, onUpdateBodyWeight, landmarkOverrides, onUpdateLandmarks }) {
+export function ProfileScreen({ sessions, customDays, dayAdds, user, auth, syncStatus, syncError, lastSyncedAt, onForceSync, profileName, firstName, lastName, onUpdateName, bodyWeight, onUpdateBodyWeight, landmarkOverrides, onUpdateLandmarks, onBackup, onRestore }) {
   const [allTime, setAllTime] = useState(false);
+  const fileRef = useRef(null);
   const scoped = useMemo(() => allTime ? sessions : sessions.filter((s) => withinDays(s.date, 30)), [sessions, allTime]);
 
   const stats = useMemo(() => {
@@ -212,8 +213,24 @@ export function ProfileScreen({ sessions, customDays, dayAdds, user, auth, syncS
             <Download size={15} style={{ color: C.good }} /> Export to Excel
             <span className="ml-auto text-[11px]" style={{ color: C.ink4 }}>Last 30 days · .xlsx</span>
           </button>
+          <button onClick={onBackup}
+            className="w-full p-3.5 flex items-center gap-2.5 text-[13px] font-semibold text-left" style={{ color: C.ink, borderTop: `1px solid ${C.border}` }}>
+            <Download size={15} style={{ color: C.accent }} /> Back up everything
+            <span className="ml-auto text-[11px]" style={{ color: C.ink4 }}>All data · .json</span>
+          </button>
+          <button onClick={() => fileRef.current && fileRef.current.click()}
+            className="w-full p-3.5 flex items-center gap-2.5 text-[13px] font-semibold text-left" style={{ color: C.ink, borderTop: `1px solid ${C.border}` }}>
+            <Upload size={15} style={{ color: C.ink3 }} /> Restore from backup
+            <span className="ml-auto text-[11px]" style={{ color: C.ink4 }}>Merges history</span>
+          </button>
+          <input ref={fileRef} type="file" accept="application/json,.json" className="hidden"
+            onChange={(e) => { const f = e.target.files && e.target.files[0]; e.target.value = ""; if (f) onRestore(f); }} />
         </div>
-        <div className="text-[11px] mt-2" style={{ color: C.ink4 }}>Includes session log, daily summary, and personal bests{user ? ". Data is synced to your account." : "."}</div>
+        <div className="text-[11px] mt-2" style={{ color: C.ink4 }}>
+          Excel is a readable report; the JSON backup is the complete, restorable copy. Restoring merges
+          sessions by date — it never deletes workouts logged since the backup was taken.
+          {user ? " Data is synced to your account." : ""}
+        </div>
       </div>
 
       {editingLandmarks && landmarkDraft && (

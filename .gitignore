@@ -11,3 +11,5 @@ node_modules/
 
 # Vercel
 .vercel
+# macOS
+.DS_Store
