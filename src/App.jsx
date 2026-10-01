@@ -13,7 +13,8 @@ import { ProfileScreen } from "./components/ProfileScreen";
 import { ProgressScreen } from "./components/ProgressScreen";
 import { SummaryScreen, WorkoutScreen } from "./components/WorkoutScreen";
 import { Logo } from "./components/atoms";
-import { ACTIVE_KEY, ADDS_KEY, C, CUSTOM_EX_KEY, CUSTOM_KEY, DISMISSED_KEY, FONT, LANDMARKS_KEY, ONBOARD_KEY, PLAN_INIT_KEY, PROFILE_KEY, SESS_KEY, SIDE_DAYS_KEY, SPECIAL_ROBBIE_EMAIL } from "./lib/constants";
+import { toggleFavorite } from "./lib/favorites";
+import { ACTIVE_KEY, ADDS_KEY, C, CUSTOM_EX_KEY, CUSTOM_KEY, DISMISSED_KEY, FAVORITES_KEY, FONT, LANDMARKS_KEY, ONBOARD_KEY, PLAN_INIT_KEY, PROFILE_KEY, SESS_KEY, SIDE_DAYS_KEY, SPECIAL_ROBBIE_EMAIL } from "./lib/constants";
 import { WORKOUT_DAYS, templateDaysFromBuiltIn } from "./lib/exerciseLibrary";
 import { FB_ENABLED, fbDeleteSession, fbLoadData, fbLoadSessions, fbSaveData, fbSaveSession, mergeSessions, useAuth } from "./lib/firebase";
 import { ROTATION, generateInsights, recommendNextDay } from "./lib/insights";
@@ -33,6 +34,7 @@ export default function IronLog() {
   const [landmarkOverrides, setLandmarkOverrides] = useState({}); // user-customized MEV/MAV/MRV per muscle group
   const [sideDays, setSideDays] = useState([]); // saved workouts outside the active training plan/rotation
   const [dismissedInsights, setDismissedInsights] = useState([]); // coach tips the user has cleared
+  const [favorites, setFavorites] = useState([]); // starred exercises, by name
   const [active, setActive] = useState(null);
   const [selectedDay, setSelectedDay] = useState(null);
   const [addTargetDay, setAddTargetDay] = useState(null);
@@ -58,8 +60,8 @@ export default function IronLog() {
 
   // ── Load data for current auth state (guest or specific account) ────────
   async function loadAllFor(u) {
-    const sk = keyFor(SESS_KEY, u), ck = keyFor(CUSTOM_KEY, u), ak = keyFor(ADDS_KEY, u), pk = keyFor(PROFILE_KEY, u), plk = keyFor(PLAN_INIT_KEY, u), cek = keyFor(CUSTOM_EX_KEY, u), lmk = keyFor(LANDMARKS_KEY, u), sdk = keyFor(SIDE_DAYS_KEY, u), dik = keyFor(DISMISSED_KEY, u);
-    let sess = [], custom = [], adds = {}, prof = { firstName: "", lastName: "", bodyWeight: null }, planInit = false, customEx = [], landmarks = {}, sideDays = [], dismissed = [];
+    const sk = keyFor(SESS_KEY, u), ck = keyFor(CUSTOM_KEY, u), ak = keyFor(ADDS_KEY, u), pk = keyFor(PROFILE_KEY, u), plk = keyFor(PLAN_INIT_KEY, u), cek = keyFor(CUSTOM_EX_KEY, u), lmk = keyFor(LANDMARKS_KEY, u), sdk = keyFor(SIDE_DAYS_KEY, u), dik = keyFor(DISMISSED_KEY, u), fvk = keyFor(FAVORITES_KEY, u);
+    let sess = [], custom = [], adds = {}, prof = { firstName: "", lastName: "", bodyWeight: null }, planInit = false, customEx = [], landmarks = {}, sideDays = [], dismissed = [], favs = [];
     try { const r = await window.storage.get(sk); sess = r ? JSON.parse(r.value).map(migrateSession) : []; } catch {}
     try { const r = await window.storage.get(ck); custom = r ? JSON.parse(r.value) : []; } catch {}
     try { const r = await window.storage.get(ak); adds = r ? JSON.parse(r.value) : {}; } catch {}
@@ -69,13 +71,14 @@ export default function IronLog() {
     try { const r = await window.storage.get(lmk); landmarks = r ? JSON.parse(r.value) : {}; } catch {}
     try { const r = await window.storage.get(sdk); sideDays = r ? JSON.parse(r.value) : []; } catch {}
     try { const r = await window.storage.get(dik); dismissed = r ? JSON.parse(r.value) : []; } catch {}
-    return { sess, custom, adds, prof, planInit, customEx, landmarks, sideDays, dismissed };
+    try { const r = await window.storage.get(fvk); favs = r ? JSON.parse(r.value) : []; } catch {}
+    return { sess, custom, adds, prof, planInit, customEx, landmarks, sideDays, dismissed, favs };
   }
 
   // ── Initial load (guest/local) ──────────────────────────────────────────
   useEffect(() => {
     (async () => {
-      const { sess, custom, adds, prof, planInit, customEx, landmarks, sideDays: loadedSideDays, dismissed } = await loadAllFor(null);
+      const { sess, custom, adds, prof, planInit, customEx, landmarks, sideDays: loadedSideDays, dismissed, favs } = await loadAllFor(null);
       const repaired = repairLegacyDayIds(sess, custom, adds, ROTATION);
       const [rSess, rCustom, rAdds] = repaired.changed ? [repaired.sessions, repaired.customDays, repaired.dayAdds] : [sess, custom, adds];
       if (repaired.changed) {
@@ -83,7 +86,7 @@ export default function IronLog() {
         window.storage.set(CUSTOM_KEY, JSON.stringify(rCustom)).catch(() => {});
         window.storage.set(ADDS_KEY, JSON.stringify(rAdds)).catch(() => {});
       }
-      setSessions(rSess); setCustomDays(rCustom); setDayAdds(rAdds); setProfile(prof); setPlanInitialized(planInit); setCustomExercises(customEx); setLandmarkOverrides(landmarks); setSideDays(loadedSideDays); setDismissedInsights(dismissed); setHasLocalData(rSess.length > 0);
+      setSessions(rSess); setCustomDays(rCustom); setDayAdds(rAdds); setProfile(prof); setPlanInitialized(planInit); setCustomExercises(customEx); setLandmarkOverrides(landmarks); setSideDays(loadedSideDays); setDismissedInsights(dismissed); setFavorites(favs); setHasLocalData(rSess.length > 0);
       try { const r = await window.storage.get(ACTIVE_KEY); setActive(r ? JSON.parse(r.value) : null); } catch {}
       if (FB_ENABLED) { try { await window.storage.get(ONBOARD_KEY); } catch { setShowAuth(true); } }
       setReady(true);
@@ -102,7 +105,7 @@ export default function IronLog() {
     (async () => {
       if (!u) {
         // Logged out (or initial guest load) → reload guest local data
-        const { sess, custom, adds, prof, planInit, customEx, landmarks, sideDays: loadedSideDays, dismissed } = await loadAllFor(null);
+        const { sess, custom, adds, prof, planInit, customEx, landmarks, sideDays: loadedSideDays, dismissed, favs } = await loadAllFor(null);
         const repaired = repairLegacyDayIds(sess, custom, adds, ROTATION);
         const [rSess, rCustom, rAdds] = repaired.changed ? [repaired.sessions, repaired.customDays, repaired.dayAdds] : [sess, custom, adds];
         if (repaired.changed) {
@@ -110,7 +113,7 @@ export default function IronLog() {
           window.storage.set(CUSTOM_KEY, JSON.stringify(rCustom)).catch(() => {});
           window.storage.set(ADDS_KEY, JSON.stringify(rAdds)).catch(() => {});
         }
-        setSessions(rSess); setCustomDays(rCustom); setDayAdds(rAdds); setProfile(prof); setPlanInitialized(planInit); setCustomExercises(customEx); setLandmarkOverrides(landmarks); setSideDays(loadedSideDays); setDismissedInsights(dismissed);
+        setSessions(rSess); setCustomDays(rCustom); setDayAdds(rAdds); setProfile(prof); setPlanInitialized(planInit); setCustomExercises(customEx); setLandmarkOverrides(landmarks); setSideDays(loadedSideDays); setDismissedInsights(dismissed); setFavorites(favs);
         // Only clear active workout if user was actually logged in before (not initial auth resolution)
         if (prevUid) setActive(null);
         setSyncStatus("offline"); setScreen("home");
@@ -119,7 +122,7 @@ export default function IronLog() {
       // Logged in → load this account's local data, then merge cloud
       setSyncStatus("syncing"); setSyncError(null);
       const local = await loadAllFor(u);
-      setSessions(local.sess); setCustomDays(local.custom); setDayAdds(local.adds); setProfile(local.prof); setPlanInitialized(local.planInit); setCustomExercises(local.customEx || []); setLandmarkOverrides(local.landmarks || {}); setSideDays(local.sideDays || []); setDismissedInsights(local.dismissed || []);
+      setSessions(local.sess); setCustomDays(local.custom); setDayAdds(local.adds); setProfile(local.prof); setPlanInitialized(local.planInit); setCustomExercises(local.customEx || []); setLandmarkOverrides(local.landmarks || {}); setSideDays(local.sideDays || []); setDismissedInsights(local.dismissed || []); setFavorites(local.favs || []);
 
       const onboardKey = `${ONBOARD_KEY}-${u.uid}`;
       const planInitKey = keyFor(PLAN_INIT_KEY, u);
@@ -129,8 +132,8 @@ export default function IronLog() {
       // needs to see that before deciding whether to show onboarding again.
       let merged = { custom: local.custom, sess: local.sess, prof: local.prof, planInit: local.planInit, adds: local.adds };
       try {
-        const [cloudSessions, cloudCustomDays, cloudDayAdds, cloudProfile, cloudPlanInit, cloudCustomEx, cloudLandmarks, cloudSideDays, cloudDismissed] = await Promise.all([
-          fbLoadSessions(u.uid), fbLoadData(u.uid, "customDays"), fbLoadData(u.uid, "dayAdds"), fbLoadData(u.uid, "profile"), fbLoadData(u.uid, "planInitialized"), fbLoadData(u.uid, "customExercises"), fbLoadData(u.uid, "landmarks"), fbLoadData(u.uid, "sideDays"), fbLoadData(u.uid, "dismissedInsights")
+        const [cloudSessions, cloudCustomDays, cloudDayAdds, cloudProfile, cloudPlanInit, cloudCustomEx, cloudLandmarks, cloudSideDays, cloudDismissed, cloudFavorites] = await Promise.all([
+          fbLoadSessions(u.uid), fbLoadData(u.uid, "customDays"), fbLoadData(u.uid, "dayAdds"), fbLoadData(u.uid, "profile"), fbLoadData(u.uid, "planInitialized"), fbLoadData(u.uid, "customExercises"), fbLoadData(u.uid, "landmarks"), fbLoadData(u.uid, "sideDays"), fbLoadData(u.uid, "dismissedInsights"), fbLoadData(u.uid, "favorites")
         ]);
         const mergedSessions = mergeSessions(local.sess, cloudSessions || []);
         setSessions(mergedSessions); window.storage.set(keyFor(SESS_KEY, u), JSON.stringify(mergedSessions)).catch(() => {});
@@ -156,6 +159,11 @@ export default function IronLog() {
         else if (local.landmarks && Object.keys(local.landmarks).length) { pushResults.push(await fbSaveData(u.uid, "landmarks", local.landmarks)); }
         if (cloudSideDays && cloudSideDays.length) { setSideDays(cloudSideDays); window.storage.set(keyFor(SIDE_DAYS_KEY, u), JSON.stringify(cloudSideDays)).catch(() => {}); }
         else if (local.sideDays && local.sideDays.length) { pushResults.push(await fbSaveData(u.uid, "sideDays", local.sideDays)); }
+        // Cloud wins when it holds anything, otherwise this device seeds it — the same rule
+        // as custom exercises. A union would be wrong here: un-starring on this device would
+        // be undone on the next login by another device's stale list.
+        if (cloudFavorites && cloudFavorites.length) { setFavorites(cloudFavorites); window.storage.set(keyFor(FAVORITES_KEY, u), JSON.stringify(cloudFavorites)).catch(() => {}); }
+        else if (local.favs && local.favs.length) { pushResults.push(await fbSaveData(u.uid, "favorites", local.favs)); }
         // Union rather than either/or: a tip cleared on one device should stay cleared here too.
         const mergedDismissed = [...new Set([...(local.dismissed || []), ...(cloudDismissed || [])])];
         if (mergedDismissed.length) {
@@ -282,7 +290,7 @@ export default function IronLog() {
   // optimistic. Only updates state on genuine failure or a fresh confirmed success.
   function handleBackup() {
     try {
-      downloadBackup({ sessions, customDays, dayAdds, customExercises, sideDays, landmarkOverrides, dismissedInsights, profile, profileName, userEmail: auth.user?.email });
+      downloadBackup({ sessions, customDays, dayAdds, customExercises, sideDays, landmarkOverrides, dismissedInsights, favorites, profile, profileName, userEmail: auth.user?.email });
     } catch (e) {
       alert("Backup failed: " + (e && e.message ? e.message : e));
     }
@@ -293,7 +301,7 @@ export default function IronLog() {
     try { backup = parseBackup(await file.text()); }
     catch (e) { alert(e.message); return; }
 
-    const merged = mergeBackup({ sessions, customDays, dayAdds, customExercises, sideDays, landmarkOverrides, dismissedInsights, profile }, backup);
+    const merged = mergeBackup({ sessions, customDays, dayAdds, customExercises, sideDays, landmarkOverrides, dismissedInsights, favorites, profile }, backup);
     const taken = new Date(backup.exportedAt).toLocaleDateString();
     const summary = merged.addedSessions > 0
       ? `adding ${merged.addedSessions} session${merged.addedSessions === 1 ? "" : "s"} you don't currently have`
@@ -311,6 +319,9 @@ export default function IronLog() {
     setDismissedInsights(merged.dismissedInsights);
     window.storage.set(keyFor(DISMISSED_KEY, auth.user), JSON.stringify(merged.dismissedInsights)).catch(() => {});
     if (uid) fbSaveData(uid, "dismissedInsights", merged.dismissedInsights).then(reportSyncResult);
+    setFavorites(merged.favorites);
+    window.storage.set(keyFor(FAVORITES_KEY, auth.user), JSON.stringify(merged.favorites)).catch(() => {});
+    if (uid) fbSaveData(uid, "favorites", merged.favorites).then(reportSyncResult);
     setProfile(merged.profile);
     window.storage.set(keyFor(PROFILE_KEY, auth.user), JSON.stringify(merged.profile)).catch(() => {});
     if (uid) fbSaveData(uid, "profile", merged.profile).then(reportSyncResult);
@@ -330,6 +341,12 @@ export default function IronLog() {
   function saveDayAdds(next) {
     window.storage.set(keyFor(ADDS_KEY, auth.user), JSON.stringify(next)).catch(() => {});
     if (uid) fbSaveData(uid, "dayAdds", next).then(reportSyncResult);
+  }
+  function handleToggleFavorite(name) {
+    const next = toggleFavorite(favorites, name);
+    setFavorites(next);
+    window.storage.set(keyFor(FAVORITES_KEY, auth.user), JSON.stringify(next)).catch(() => {});
+    if (uid) fbSaveData(uid, "favorites", next).then(reportSyncResult);
   }
   function saveCustomExercises(next) {
     window.storage.set(keyFor(CUSTOM_EX_KEY, auth.user), JSON.stringify(next)).catch(() => {});
@@ -376,6 +393,7 @@ export default function IronLog() {
         fbSaveData(uid, "dayAdds", dayAdds),
         fbSaveData(uid, "profile", profile),
         fbSaveData(uid, "customExercises", customExercises),
+        fbSaveData(uid, "favorites", favorites),
       ]).then((dataResults) => [...sessionResults, ...dataResults]))
       .then((allResults) => {
         const failed = allResults.find(r => r && r.ok === false);
@@ -752,10 +770,10 @@ export default function IronLog() {
     <div className="min-h-screen" style={{ backgroundColor: C.surface, fontFamily: FONT, WebkitFontSmoothing: "antialiased" }}>
       <div className="max-w-md mx-auto relative" style={{ minHeight: "100vh", paddingTop: "env(safe-area-inset-top, 0px)", backgroundColor: C.bg }}>
         {screen === "home" && <HomeScreen sessions={sessions} activeSession={active} days={allDays} onSelectDay={handleSelectDay} onResume={handleResume} onDiscard={handleDiscardActive} onNewDay={() => setScreen("newday")} onOpenCoach={() => setScreen("coach")} onOpenLibrary={() => setScreen("library")} insights={insights} onDismissInsight={handleDismissInsight} nextDay={nextDay} onDeleteDay={handleDeleteCustomDay} onDuplicateDay={handleDuplicateDay} onChangePlan={() => setScreen("changeplan")} />}
-        {screen === "library" && <LibraryScreen sessions={sessions} customExercises={customExercises} onBack={() => setScreen("home")} onNewCustomExercise={handleNewCustomExercise} />}
+        {screen === "library" && <LibraryScreen sessions={sessions} customExercises={customExercises} onBack={() => setScreen("home")} onNewCustomExercise={handleNewCustomExercise} favorites={favorites} onToggleFavorite={handleToggleFavorite} />}
         {screen === "changeplan" && <ChangePlanScreen currentDayCount={allDays.length} onSelect={handleChangePlan} onBack={() => setScreen("home")} />}
         {screen === "daypreview" && liveSelectedDay && <DayPreviewScreen day={liveSelectedDay} sessions={sessions} activeSession={active} onStart={handleStartDay} onResume={handleResume} onBack={() => setScreen("home")} onAddExercise={handleAddExercise} onRemoveAdded={handleRemoveAdded} onDeleteCustomDay={handleDeleteCustomDay} onReorderExercise={handleReorderExercise} onRemoveExercise={handleRemoveExercisePreview} />}
-        {screen === "addexercise" && liveAddTargetDay && <AddExerciseScreen day={liveAddTargetDay} onAdd={handleConfirmAdd} onBack={() => setScreen(addReturnTo)} customExercises={customExercises} />}
+        {screen === "addexercise" && liveAddTargetDay && <AddExerciseScreen day={liveAddTargetDay} onAdd={handleConfirmAdd} onBack={() => setScreen(addReturnTo)} customExercises={customExercises} favorites={favorites} onToggleFavorite={handleToggleFavorite} />}
         {screen === "calendar" && <CalendarScreen sessions={sessions} onOpenDay={openCalendarDay} />}
         {screen === "daydetail" && calendarDay && <DayDetailScreen daySessions={calendarDay.daySessions} date={calendarDay.date} onBack={() => setScreen("calendar")} />}
         {screen === "progress" && <ProgressScreen sessions={sessions} bodyWeight={profile.bodyWeight} landmarkOverrides={landmarkOverrides} />}

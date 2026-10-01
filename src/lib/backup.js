@@ -22,6 +22,7 @@ export function buildBackup(state) {
       sideDays: state.sideDays || [],
       landmarkOverrides: state.landmarkOverrides || {},
       dismissedInsights: state.dismissedInsights || [],
+      favorites: state.favorites || [],
       profile: state.profile || {},
     },
   };
@@ -92,6 +93,9 @@ export function mergeBackup(current, backup) {
     sideDays: Array.isArray(d.sideDays) ? d.sideDays : (current.sideDays || []),
     landmarkOverrides: d.landmarkOverrides && typeof d.landmarkOverrides === "object" ? d.landmarkOverrides : (current.landmarkOverrides || {}),
     dismissedInsights: Array.isArray(d.dismissedInsights) ? d.dismissedInsights : (current.dismissedInsights || []),
+    // Absent from backups taken before starring existed, so fall back to what this device
+    // already has rather than clearing it.
+    favorites: Array.isArray(d.favorites) ? d.favorites : (current.favorites || []),
     profile: d.profile && typeof d.profile === "object" ? d.profile : (current.profile || {}),
   };
 }

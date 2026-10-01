@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { ArrowLeft, ArrowUpRight, ChevronRight, Play, Plus, RefreshCw, Search, Sparkles, Trash2 } from "lucide-react";
+import { ArrowLeft, ArrowUpRight, BarChart3, CalendarCheck, ChevronRight, Flame, Layers, Play, Plus, RefreshCw, Search, Sparkles, Trash2, Weight } from "lucide-react";
 import { CatTag, InsightCard, Logo, SwipeableCard } from "./atoms";
 import { C, CARD_SHADOW } from "../lib/constants";
 import { WORKOUT_TEMPLATES } from "../lib/exerciseLibrary";
@@ -61,17 +61,24 @@ export function HomeScreen({ sessions, activeSession, days, onSelectDay, onResum
         </div>
       )}
 
-      {/* This week */}
-      <div className="grid grid-cols-4 gap-2.5 mb-4">
+      {/* Overview — this week at a glance. Each tile carries its own icon so the row reads
+          as four distinct measures rather than four anonymous numbers. */}
+      <div className="flex items-center gap-1.5 mb-2.5">
+        <BarChart3 size={14} style={{ color: C.ink2 }} />
+        <span className="text-[11px] font-bold uppercase tracking-[0.14em]" style={{ color: C.ink3 }}>Overview</span>
+        <span className="text-[11px]" style={{ color: C.ink4 }}>· this week</span>
+      </div>
+      <div className="grid grid-cols-4 gap-2.5 mb-5">
         {[
-          ["This week", String(wk.count)],
-          ["Volume", wk.volume >= 1000 ? `${(wk.volume / 1000).toFixed(1)}k` : String(wk.volume)],
-          ["Sets", String(wk.sets)],
-          ["Streak", String(streak)],
-        ].map(([label, val]) => (
-          <div key={label} className="rounded-2xl py-3 px-2.5 text-center" style={{ backgroundColor: C.surface }}>
-            <div className="text-[20px] font-bold tabular-nums leading-none" style={{ color: C.ink }}>{val}</div>
-            <div className="text-[10px] uppercase tracking-wide mt-1.5" style={{ color: C.ink3 }}>{label}</div>
+          ["Sessions", String(wk.count), CalendarCheck, C.accent],
+          ["Volume", wk.volume >= 1000 ? `${(wk.volume / 1000).toFixed(1)}k` : String(wk.volume), Weight, C.pull],
+          ["Sets", String(wk.sets), Layers, C.legs],
+          ["Streak", String(streak), Flame, C.push],
+        ].map(([label, val, Icon, color]) => (
+          <div key={label} className="rounded-2xl py-3 px-2 text-center" style={{ backgroundColor: C.surface }}>
+            <Icon size={15} style={{ color }} className="mx-auto mb-1.5" />
+            <div className="text-[19px] font-bold tabular-nums leading-none" style={{ color: C.ink }}>{val}</div>
+            <div className="text-[9.5px] uppercase tracking-wide mt-1.5" style={{ color: C.ink3 }}>{label}</div>
           </div>
         ))}
       </div>

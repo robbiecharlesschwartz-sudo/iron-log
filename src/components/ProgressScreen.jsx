@@ -5,14 +5,14 @@ import { MuscleHeatmap } from "./MuscleHeatmap";
 import { Sparkline } from "./atoms";
 import { ACCENT, C, CARD_SHADOW } from "../lib/constants";
 import { MUSCLE_ORDER } from "../lib/exerciseLibrary";
-import { HEATMAP_REGIONS, MERGED_SOURCES, RANGE_OPTS, heatmapStatus, regionContributionsFor } from "../lib/heatmapData";
+import { ALL_TIME_DAYS, HEATMAP_REGIONS, MERGED_SOURCES, RANGE_OPTS, heatmapStatus, regionContributionsFor } from "../lib/heatmapData";
 import { withinDays } from "../lib/insights";
 import { REGION_TO_MUSCLE, resolveLandmarks } from "../lib/landmarks";
 import { muscleForLift, normalizeLiftName } from "../lib/muscleMapping";
 import { sessionVolume } from "../lib/sessionUtils";
 
 export function ProgressScreen({ sessions, bodyWeight, landmarkOverrides }) {
-  const [rangeDays, setRangeDays] = useState(30); // default 1M
+  const [rangeDays, setRangeDays] = useState(ALL_TIME_DAYS); // default All Time — the whole log, not a window
   const [expandedId, setExpandedId] = useState(null);
   const [selectedPoint, setSelectedPoint] = useState(null); // {key, date, note}
   const [query, setQuery] = useState("");
@@ -29,7 +29,7 @@ export function ProgressScreen({ sessions, bodyWeight, landmarkOverrides }) {
   // per-week averages aren't diluted by an artificial 100000-day window.
   const effectiveWeeks = useMemo(() => {
     if (!scoped.length) return 1;
-    if (rangeDays < 100000) return Math.max(1, rangeDays / 7);
+    if (rangeDays < ALL_TIME_DAYS) return Math.max(1, rangeDays / 7);
     const times = scoped.map(s => new Date(s.date).getTime()).filter(t => !isNaN(t));
     if (!times.length) return 1;
     const first = Math.min(...times);
@@ -45,7 +45,7 @@ export function ProgressScreen({ sessions, bodyWeight, landmarkOverrides }) {
   // (for the trend arrow), plus recency (for the recovery fade) and top contributors.
   const heatmapData = useMemo(() => {
     const now = Date.now();
-    const windowMs = rangeDays < 100000 ? rangeDays * 86400000
+    const windowMs = rangeDays < ALL_TIME_DAYS ? rangeDays * 86400000
       : (scoped.length ? now - Math.min(...scoped.map(s => new Date(s.date).getTime())) : 7 * 86400000);
     const prevStart = now - windowMs * 2, prevEnd = now - windowMs;
     const prevSessions = sessions.filter(s => { const t = new Date(s.date).getTime(); return t >= prevStart && t < prevEnd; });

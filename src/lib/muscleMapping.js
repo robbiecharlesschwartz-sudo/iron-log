@@ -18,7 +18,7 @@ export function muscleForLift(name) {
   // 2. Partial name match. Two rules keep this honest, because a naive "first entry
   // that appears inside the name" is wrong twice over:
   //   - Longest wins, so "Barbell Romanian Deadlift" resolves against "Romanian
-  //     Deadlift" (Hamstrings) instead of plain "Deadlift" (Back), which merely
+  //     Deadlift" (Legs) instead of plain "Deadlift" (Back), which merely
   //     happens to sit earlier in the array.
   //   - The match has to account for most of the name. "Tricep Dips" contains "Dips"
   //     but is not a chest exercise; a 4-of-11-character overlap is not evidence, so
@@ -40,17 +40,24 @@ export function muscleForLift(name) {
   // Deadlift" has to beat "deadlift"→Back. Specific first, generic last.
   const has = (...w) => w.some((x) => lower.includes(x));
   if (has("cardio", "treadmill", "bike", "rowing", "jump rope", "elliptical", "swimming", "stair")) return "Cardio";
+  // Face pulls and reverse pec deck are filed under Back, so they have to be claimed
+  // before the Shoulders rule below — which would otherwise take them on "face pull" and
+  // "reverse pec" — and before the Back rule, which never sees these names at all.
+  if (has("face pull", "reverse pec")) return "Back";
   // Shoulders before Chest ("fly") and Back ("row")
-  if (has("shoulder press", "overhead press", "push press", "ohp", "arnold", "lateral raise", "lateral", "delt", "rear ", "reverse fly", "reverse pec", "bent over fly", "bent-over fly", "face pull", "upright row", "front raise")) return "Shoulders";
+  if (has("shoulder press", "overhead press", "push press", "ohp", "arnold", "lateral raise", "lateral", "delt", "rear ", "reverse fly", "bent over fly", "bent-over fly", "upright row", "front raise", "external rotation", "internal rotation", "rotator cuff")) return "Shoulders";
   // Triceps before Chest ("dip", "bench")
   if (has("pushdown", "tricep", "skull", "close-grip", "close grip", "overhead extension", "jm press", "tate press")) return "Triceps";
-  // Hamstrings before Back ("deadlift") and Biceps ("curl")
-  if (has("rdl", "romanian", "leg curl", "hamstring", "nordic", "good morning", "stiff-leg", "stiff leg", "glute-ham", "glute ham")) return "Hamstrings";
-  // Glutes before Back ("deadlift")
-  if (has("hip thrust", "glute", "kickback", "bridge", "sumo", "pull-through", "pull through", "abduction")) return "Glutes";
-  if (has("calf")) return "Calves";
+  // Legs is one category — quads, hamstrings, glutes, calves and the adductors. The rules
+  // stay split and in this order because of what each one has to beat: the hamstring names
+  // before Back ("deadlift") and Biceps ("curl"), the glute names before Back ("deadlift"),
+  // and calves before anything. The body map still separates these by name; see
+  // heatmapData.classifyLegExercise.
+  if (has("rdl", "romanian", "leg curl", "hamstring", "nordic", "good morning", "stiff-leg", "stiff leg", "glute-ham", "glute ham")) return "Legs";
+  if (has("hip thrust", "glute", "kickback", "bridge", "sumo", "pull-through", "pull through", "abduction", "adduction")) return "Legs";
+  if (has("calf")) return "Legs";
   if (has("curl")) return "Biceps"; // leg/hamstring/nordic curls already returned above
-  if (has("squat", "leg press", "leg extension", "lunge", "split squat", "step-up", "step up")) return "Quads";
+  if (has("squat", "leg press", "leg extension", "lunge", "split squat", "step-up", "step up")) return "Legs";
   if (has("row", "pulldown", "pull-up", "pullup", "chin-up", "chinup", "deadlift", "pullover", "shrug", "lat ")) return "Back";
   if (has("bench", "chest", "pec", "fly", "incline press", "push-up", "pushup", "dip")) return "Chest";
   if (has("plank", "crunch", "leg raise", "knee raise", "ab wheel", "ab ", "russian", "core", "sit-up", "situp", "pallof", "woodchop", "dead bug", "l-sit", "carry")) return "Core";

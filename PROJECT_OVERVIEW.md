@@ -224,8 +224,18 @@ Bottom nav: **Train · Calendar · Progress · History · Profile**.
 ## 7. Core subsystems
 
 ### Exercise library and muscle resolution
-`EXERCISE_LIBRARY` holds **201 exercises** (deduped by lowercase name; first wins), each with
-one primary `muscle`. Six plan templates: `ppl6`, `bro5`, `ul4`, `fb3`, `beginner`, `blank`.
+`EXERCISE_LIBRARY` holds **203 exercises** (deduped by lowercase name; first wins), each with
+one primary `muscle` drawn from `MUSCLE_ORDER`:
+**Chest · Back · Shoulders · Biceps · Triceps · Legs · Core · Cardio · Other.**
+
+These are *display/sort* categories, not the heatmap's regions. Lower body is a single
+**Legs** category, because nobody browses a library by hamstring vs glute — while the
+heatmap still tracks Quads, Hamstrings, Glutes and Calves separately, each with its own
+landmarks. `heatmapData.classifyLegExercise(name)` is what bridges the two, recovering the
+region from the exercise's own name, exactly as `classifyBackExercise` already did for the
+combined Back category. Face Pulls and Reverse Pec Deck are filed under **Back**.
+
+Six plan templates: `ppl6`, `bro5`, `ul4`, `fb3`, `beginner`, `blank`.
 Six built-in days: `push-a`, `pull-a`, `legs-a`, `push-b`, `pull-b`, `legs-b`.
 
 `muscleForLift(name)` resolves any lift name in three stages:
@@ -238,7 +248,9 @@ Both rules in stage 2 and the ordering in stage 3 are load-bearing; see §8.
 ### Volume landmarks (MEV / MAV / MRV)
 `landmarks.js` is the single source of truth, shared by the heatmap, Training Distribution,
 and the Exercises tab. User-editable per muscle from Profile; unset muscles fall back to
-defaults. `heatmapStatus(perWeek, [mev,mav,mrv])` → `gray < mev ≤ green < mav ≤ yellow < mrv ≤ red`.
+defaults. `resolveLandmarks` also derives a non-editable **Legs** total (the sum of Quads,
+Hamstrings, Glutes and Calves) for the Progress tab's combined Legs volume bar — a combined
+set count has to be read against a combined landmark. `heatmapStatus(perWeek, [mev,mav,mrv])` → `gray < mev ≤ green < mav ≤ yellow < mrv ≤ red`.
 
 ### Heatmap
 Ten regions: Chest, Shoulders, Triceps, Biceps, Back, Core, Glutes, Quads, Hamstrings, Calves.
@@ -246,6 +258,11 @@ Back is one combined region (lats/traps/upper/lower together).
 
 `regionContributionsFor()` spreads each exercise over a primary region at weight 1 plus
 secondary regions at fractional weights (bench → Chest 1, Shoulders 0.4, Triceps 0.3).
+
+A `Legs`-category exercise is routed through `classifyLegExercise` first (calves → Calves,
+ab/adduction → Glutes, RDL/leg-curl names → Hamstrings, thrust/glute names → Glutes,
+everything else → Quads). The old per-muscle branches are kept for custom exercises the user
+tagged by hand before lower body became one category.
 
 **Quads + Hamstrings render as one "Legs" area on the silhouette only.** That merge is a
 display concern — `SILHOUETTE_MERGE` adds a derived `Legs` entry alongside the real regions
@@ -337,11 +354,18 @@ Each of these was a real, user-reported defect. They are listed with the failure
    Training Distribution colored bars from the worst sub-region while printing a combined
    total, so Arms showed "27 / 8–20" in yellow instead of red.
 
-7. **Starting a day rebuilds its session from the template.**
+7. **Every sentence the coach prints must be traceable to a logged row.**
+   There are eleven tip generators (overload, record, plateau, layoff, cold muscle, weak point,
+   push/pull balance, volume trend, cardio gap, consistency, recovery). Each one returns nothing
+   at all when its data isn't there, rather than filling the gap with an average or a typical
+   starting number — and a plateau on a lift suppresses the "add 5 lb" tip for that same lift,
+   because the two contradict each other.
+
+8. **Starting a day rebuilds its session from the template.**
    So it destroys a workout in progress. Day Preview hides Start and offers Resume for the live
    day, and confirms before abandoning a different day's session.
 
-8. **Bump the `CACHE` string in `sw.js` on every deploy**, and rebuild `app.js`. Otherwise
+9. **Bump the `CACHE` string in `sw.js` on every deploy**, and rebuild `app.js`. Otherwise
    clients keep the old bundle.
 
 ---

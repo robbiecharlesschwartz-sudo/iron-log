@@ -1,11 +1,12 @@
-import { useMemo, useState } from "react";
-import { Activity, ArrowLeft, ArrowUpRight, ChevronDown, ChevronUp, Dumbbell, Link2, Play, Plus, Search, Trash2, X } from "lucide-react";
-import { CatTag, EquipPill } from "./atoms";
+import { useEffect, useMemo, useState } from "react";
+import { Activity, ArrowLeft, ArrowUpRight, ChevronDown, ChevronUp, Dumbbell, Link2, Play, Plus, Search, Star, Trash2, X } from "lucide-react";
+import { CatTag, EquipPill, FavoriteStar } from "./atoms";
 import { ACCENT, C } from "../lib/constants";
 import { EQUIPMENT_FILTERS, MUSCLE_ORDER, autoMuscleForDay, ex, mergeLibrary } from "../lib/exerciseLibrary";
 import { estDurationMin } from "../lib/insights";
 import { dayAccentColor, relativeDays } from "../lib/sessionUtils";
 import { makeId } from "../lib/id";
+import { favoriteSet, favoritesFirst } from "../lib/favorites";
 
 export function DayPreviewScreen({ day, sessions, activeSession, onStart, onResume, onBack, onAddExercise, onRemoveAdded, onDeleteCustomDay, onReorderExercise, onRemoveExercise }) {
   const accent = dayAccentColor(day);
@@ -163,7 +164,7 @@ function SupersetSlots({ slots, activeSlot, onSelectSlot, onClearSlot, onConfirm
 }
 
 
-export function AddExerciseScreen({ day, onAdd, onBack, customExercises }) {
+export function AddExerciseScreen({ day, onAdd, onBack, customExercises, favorites, onToggleFavorite }) {
   const accent = dayAccentColor(day);
   const [q, setQ] = useState("");
   const [filter, setFilter] = useState("All");
@@ -177,6 +178,12 @@ export function AddExerciseScreen({ day, onAdd, onBack, customExercises }) {
   const autoMuscle = autoMuscleForDay(day, customKind);
   const effectiveMuscle = customMuscle || autoMuscle;
   const fullLibrary = useMemo(() => mergeLibrary(customExercises), [customExercises]);
+  const favSet = useMemo(() => favoriteSet(favorites), [favorites]);
+
+  // The app is one long scrolling page, so arriving here from a workout kept whatever
+  // scroll position the workout had — which dropped you into the middle of the library.
+  useEffect(() => { window.scrollTo(0, 0); }, []);
+
   const results = useMemo(() => {
     const needle = q.trim().toLowerCase();
     const list = fullLibrary.filter((e) => {
@@ -188,6 +195,14 @@ export function AddExerciseScreen({ day, onAdd, onBack, customExercises }) {
     for (const e of list) (byMuscle[e.muscle] = byMuscle[e.muscle] || []).push(e);
     return byMuscle;
   }, [q, filter, fullLibrary]);
+
+  // Starred exercises are pinned above the muscle groups, but still obey the search and
+  // the equipment filter — a pinned section that ignored the filter would contradict the
+  // list underneath it.
+  const favorited = useMemo(
+    () => Object.values(results).flat().filter((e) => favSet.has(e.name.trim().toLowerCase())),
+    [results, favSet],
+  );
 
   function switchMode(m) { setMode(m); setSlots([null, null]); setActiveSlot(0); }
   function fillSlot(libEx) {
@@ -210,6 +225,23 @@ export function AddExerciseScreen({ day, onAdd, onBack, customExercises }) {
     handlePick(built);
   }
 
+  function row(e) {
+    return (
+      <div key={e.name} className="rounded-2xl flex items-center pr-1.5" style={{ backgroundColor: C.bg, border: `1px solid ${C.border}` }}>
+        <button onClick={() => handlePick(e)} className="flex-1 min-w-0 p-3.5 flex items-center gap-3 text-left active:scale-[0.99] transition-transform">
+          <div className="flex-1 min-w-0">
+            <div className="text-[14px] font-semibold truncate" style={{ color: C.ink }}>{e.name}</div>
+            <div className="mt-1"><EquipPill equipment={e.equipment} /></div>
+          </div>
+          <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0" style={{ backgroundColor: C.accentSoft }}>
+            {mode === "superset" ? <Link2 size={15} style={{ color: C.accent }} /> : <Plus size={16} style={{ color: C.accent }} />}
+          </div>
+        </button>
+        {onToggleFavorite && <FavoriteStar on={favSet.has(e.name.trim().toLowerCase())} onToggle={() => onToggleFavorite(e.name)} name={e.name} />}
+      </div>
+    );
+  }
+
   return (
     <div className="px-5 pt-5 pb-32">
       <div className="flex items-center gap-2 mb-4">
@@ -226,10 +258,15 @@ export function AddExerciseScreen({ day, onAdd, onBack, customExercises }) {
         <SupersetSlots slots={slots} activeSlot={activeSlot} onSelectSlot={setActiveSlot} onClearSlot={clearSlot} onConfirm={confirmSuperset} />
       )}
 
-      <div className="flex items-center gap-2 rounded-2xl px-3.5 py-3 mb-3" style={{ backgroundColor: C.surface }}>
-        <Search size={17} style={{ color: C.ink3 }} />
-        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search exercises or muscle" className="flex-1 bg-transparent outline-none text-[15px]" style={{ color: C.ink }} />
-        {q && <button onClick={() => setQ("")} aria-label="Clear"><X size={16} style={{ color: C.ink3 }} /></button>}
+      {/* Search stays put as the list scrolls — the library is hundreds of rows long, and
+          scrolling back to the top to narrow it down was the whole friction. The negative
+          margin lets its background span the full width while the page keeps its gutter. */}
+      <div className="-mx-5 px-5 pt-1 pb-2" style={{ position: "sticky", top: "env(safe-area-inset-top, 0px)", zIndex: 20, backgroundColor: C.bg }}>
+        <div className="flex items-center gap-2 rounded-2xl px-3.5 py-3" style={{ backgroundColor: C.surface }}>
+          <Search size={17} style={{ color: C.ink3 }} />
+          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search exercises or muscle" className="flex-1 bg-transparent outline-none text-[15px]" style={{ color: C.ink }} />
+          {q && <button onClick={() => setQ("")} aria-label="Clear"><X size={16} style={{ color: C.ink3 }} /></button>}
+        </div>
       </div>
 
       <div className="flex gap-1.5 mb-5 overflow-x-auto pb-1">
@@ -239,24 +276,21 @@ export function AddExerciseScreen({ day, onAdd, onBack, customExercises }) {
         ))}
       </div>
 
+      {favorited.length > 0 && (
+        <div className="mb-5">
+          <div className="text-[11px] uppercase tracking-[0.14em] font-bold mb-2 flex items-center gap-1.5" style={{ color: C.push }}>
+            <Star size={12} fill={C.push} strokeWidth={2} /> Starred
+          </div>
+          <div className="flex flex-col gap-2">{favorited.map(row)}</div>
+        </div>
+      )}
+
       {Object.keys(results).length === 0 ? (
         <div className="text-center py-12 text-[14px]" style={{ color: C.ink3 }}>No matches. Try another search.</div>
       ) : MUSCLE_ORDER.filter((m) => results[m]).map((muscle) => (
         <div key={muscle} className="mb-5">
           <div className="text-[11px] uppercase tracking-[0.14em] font-bold mb-2" style={{ color: C.ink3 }}>{muscle}</div>
-          <div className="flex flex-col gap-2">
-            {results[muscle].map((e) => (
-              <button key={e.name} onClick={() => handlePick(e)} className="rounded-2xl p-3.5 flex items-center gap-3 text-left active:scale-[0.99] transition-transform" style={{ backgroundColor: C.bg, border: `1px solid ${C.border}` }}>
-                <div className="flex-1 min-w-0">
-                  <div className="text-[14px] font-semibold truncate" style={{ color: C.ink }}>{e.name}</div>
-                  <div className="mt-1"><EquipPill equipment={e.equipment} /></div>
-                </div>
-                <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0" style={{ backgroundColor: C.accentSoft }}>
-                  {mode === "superset" ? <Link2 size={15} style={{ color: C.accent }} /> : <Plus size={16} style={{ color: C.accent }} />}
-                </div>
-              </button>
-            ))}
-          </div>
+          <div className="flex flex-col gap-2">{favoritesFirst(results[muscle], favSet).map(row)}</div>
         </div>
       ))}
 
@@ -397,7 +431,7 @@ export function NewDayScreen({ onSave, onSaveSide, onCancel, customExercises, on
   const [customMuscle, setCustomMuscle] = useState(null); // null = use the auto-suggested muscle
   const [ssSlots, setSsSlots] = useState([null, null]); // the two exercises being paired
   const [ssActive, setSsActive] = useState(0); // which slot the next pick fills
-  const autoCustomMuscle = customKind === "cardio" ? "Cardio" : (tag === "PUSH" ? "Chest" : tag === "PULL" ? "Back" : tag === "LEGS" ? "Quads" : "Other");
+  const autoCustomMuscle = customKind === "cardio" ? "Cardio" : (tag === "PUSH" ? "Chest" : tag === "PULL" ? "Back" : tag === "LEGS" ? "Legs" : "Other");
   const effectiveCustomMuscle = customMuscle || autoCustomMuscle;
 
   const canSave = title.trim() && rows.some((r) => r.name.trim());

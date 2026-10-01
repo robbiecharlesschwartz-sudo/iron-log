@@ -25,15 +25,15 @@ export const WORKOUT_TEMPLATES = [
         ["Back","Seated Cable Row",3,"12",75],["Biceps","Barbell Curl",3,"12",60]]),
       makeTemplateDay("bro-shoulder","PUSH","Shoulder Day","All three delt heads",[
         ["Shoulders","Overhead Press",4,"8-10",120],["Shoulders","Dumbbell Lateral Raise",4,"12-15",60],
-        ["Shoulders","Face Pull",3,"15-20",45],["Shoulders","Rear Delt Fly",3,"15",45],["Triceps","Skull Crusher",3,"10-12",75]]),
+        ["Back","Face Pull",3,"15-20",45],["Shoulders","Rear Delt Fly",3,"15",45],["Triceps","Skull Crusher",3,"10-12",75]]),
       makeTemplateDay("bro-arms","CUSTOM","Arms Day","Biceps and triceps superset focus",[
         ["Biceps","Barbell Curl",4,"10-12",75],["Triceps","Skull Crusher",4,"10-12",75],
         ["Biceps","Hammer Curl",3,"12",60],["Triceps","Tricep Pushdown",3,"12-15",60],
         ["Biceps","Concentration Curl",3,"12",45],["Triceps","Overhead Tricep Extension",3,"12",45]]),
       makeTemplateDay("bro-legs","LEGS","Leg Day","Quads, hamstrings, glutes, calves",[
-        ["Quads","Barbell Squat",4,"8-10",180],["Hamstrings","Romanian Deadlift",4,"10",120],
-        ["Quads","Leg Press",3,"12-15",90],["Hamstrings","Leg Curl",3,"12",75],
-        ["Quads","Leg Extension",3,"15",60],["Calves","Calf Raise",4,"15-20",45]])
+        ["Legs","Barbell Squat",4,"8-10",180],["Legs","Romanian Deadlift",4,"10",120],
+        ["Legs","Leg Press",3,"12-15",90],["Legs","Leg Curl",3,"12",75],
+        ["Legs","Leg Extension",3,"15",60],["Legs","Calf Raise",4,"15-20",45]])
     ]
   },
   {
@@ -44,16 +44,16 @@ export const WORKOUT_TEMPLATES = [
         ["Chest","Barbell Bench Press",4,"5",180],["Back","Barbell Row",4,"5",180],
         ["Shoulders","Overhead Press",3,"8",120],["Back","Pull-Up",3,"8",120],["Shoulders","Dumbbell Lateral Raise",3,"12",60]]),
       makeTemplateDay("ul-lower-a","LEGS","Lower A","Strength focus — squat and hinge",[
-        ["Quads","Barbell Squat",4,"5",180],["Hamstrings","Romanian Deadlift",3,"8",120],
-        ["Quads","Leg Press",3,"10",90],["Hamstrings","Leg Curl",3,"10",75],["Calves","Calf Raise",4,"15",60]]),
+        ["Legs","Barbell Squat",4,"5",180],["Legs","Romanian Deadlift",3,"8",120],
+        ["Legs","Leg Press",3,"10",90],["Legs","Leg Curl",3,"10",75],["Legs","Calf Raise",4,"15",60]]),
       makeTemplateDay("ul-upper-b","PULL","Upper B","Hypertrophy focus — volume work",[
         ["Chest","Incline Dumbbell Press",4,"10-12",75],["Back","Lat Pulldown",4,"10-12",75],
         ["Chest","Cable Fly",3,"12-15",60],["Back","Seated Cable Row",3,"12",60],
         ["Biceps","Barbell Curl",3,"12",60],["Triceps","Tricep Pushdown",3,"12",60]]),
       makeTemplateDay("ul-lower-b","LEGS","Lower B","Hypertrophy focus — higher reps",[
-        ["Hamstrings","Romanian Deadlift",4,"10",90],["Quads","Leg Press",4,"12-15",75],
-        ["Glutes","Hip Thrust",4,"12",75],["Quads","Leg Extension",3,"15",60],
-        ["Hamstrings","Leg Curl",3,"15",60],["Calves","Calf Raise",4,"20",45]])
+        ["Legs","Romanian Deadlift",4,"10",90],["Legs","Leg Press",4,"12-15",75],
+        ["Legs","Hip Thrust",4,"12",75],["Legs","Leg Extension",3,"15",60],
+        ["Legs","Leg Curl",3,"15",60],["Legs","Calf Raise",4,"20",45]])
     ]
   },
   {
@@ -61,14 +61,14 @@ export const WORKOUT_TEMPLATES = [
     description: "Hit everything 3× per week — great for busy schedules",
     days: [
       makeTemplateDay("fb-a","PUSH","Full Body A","Squat pattern emphasis",[
-        ["Quads","Barbell Squat",3,"5",180],["Chest","Barbell Bench Press",3,"8",90],
-        ["Back","Barbell Row",3,"8",90],["Shoulders","Overhead Press",2,"10",75],["Hamstrings","Romanian Deadlift",3,"10",90]]),
+        ["Legs","Barbell Squat",3,"5",180],["Chest","Barbell Bench Press",3,"8",90],
+        ["Back","Barbell Row",3,"8",90],["Shoulders","Overhead Press",2,"10",75],["Legs","Romanian Deadlift",3,"10",90]]),
       makeTemplateDay("fb-b","PULL","Full Body B","Hip hinge emphasis",[
-        ["Quads","Barbell Squat",3,"5",180],["Back","Deadlift",1,"5",180],
+        ["Legs","Barbell Squat",3,"5",180],["Back","Deadlift",1,"5",180],
         ["Back","Pull-Up",3,"8",90],["Chest","Dumbbell Bench Press",3,"10",75],["Shoulders","Dumbbell Lateral Raise",3,"15",60]]),
       makeTemplateDay("fb-c","LEGS","Full Body C","Glute emphasis",[
-        ["Quads","Barbell Squat",3,"5",180],["Chest","Barbell Bench Press",3,"8",90],
-        ["Glutes","Hip Thrust",3,"12",90],["Back","Barbell Row",3,"8",90],["Shoulders","Face Pull",3,"15",60]])
+        ["Legs","Barbell Squat",3,"5",180],["Chest","Barbell Bench Press",3,"8",90],
+        ["Legs","Hip Thrust",3,"12",90],["Back","Barbell Row",3,"8",90],["Back","Face Pull",3,"15",60]])
     ]
   },
   {
@@ -76,9 +76,9 @@ export const WORKOUT_TEMPLATES = [
     description: "Alternating A/B workouts — add weight every session",
     days: [
       makeTemplateDay("beg-a","PUSH","Workout A","Add 5 lb to each lift each session",[
-        ["Quads","Barbell Squat",3,"5",180],["Chest","Barbell Bench Press",3,"5",180],["Back","Deadlift",1,"5",180]]),
+        ["Legs","Barbell Squat",3,"5",180],["Chest","Barbell Bench Press",3,"5",180],["Back","Deadlift",1,"5",180]]),
       makeTemplateDay("beg-b","PULL","Workout B","Rotate with Workout A — 3× per week",[
-        ["Quads","Barbell Squat",3,"5",180],["Shoulders","Overhead Press",3,"5",180],["Back","Barbell Row",3,"5",180]])
+        ["Legs","Barbell Squat",3,"5",180],["Shoulders","Overhead Press",3,"5",180],["Back","Barbell Row",3,"5",180]])
     ]
   },
   { id: "blank", name: "Start Completely Blank", emoji: "✏️", description: "Build your own program from scratch", days: [] }
@@ -99,7 +99,11 @@ export function templateDaysFromBuiltIn() {
 }
 
 
-export const MUSCLE_ORDER = ["Chest", "Back", "Shoulders", "Biceps", "Triceps", "Quads", "Hamstrings", "Glutes", "Calves", "Core", "Cardio", "Other"];
+// Display/sort categories for every exercise list in the app. Lower body is ONE category:
+// the heatmap still tracks quads, hamstrings, glutes and calves as separate regions with
+// their own landmarks (see heatmapData.classifyLegExercise), but nobody browses a library
+// that way.
+export const MUSCLE_ORDER = ["Chest", "Back", "Shoulders", "Biceps", "Triceps", "Legs", "Core", "Cardio", "Other"];
 
 
 export const lx = (name, muscle, equipment, rest) => ({ name, muscle, equipment, rest });
@@ -139,9 +143,10 @@ export const EXERCISE_LIBRARY_RAW = [
   lx("Dumbbell Lateral Raise", "Shoulders", "Dumbbell", 60),
   lx("Cable Lateral Raise", "Shoulders", "Cable", 60),
   lx("Machine Lateral Raise", "Shoulders", "Machine", 60),
-  lx("Face Pulls", "Shoulders", "Cable", 75),
-  lx("Reverse Pec Deck", "Shoulders", "Machine", 75),
+  lx("Face Pulls", "Back", "Cable", 75),
+  lx("Reverse Pec Deck", "Back", "Machine", 75),
   lx("Rear Delt Cable Fly", "Shoulders", "Cable", 75),
+  lx("Shoulder External Rotation", "Shoulders", "Cable", 45),
   // Triceps
   lx("Rope Pushdown", "Triceps", "Cable", 60),
   lx("Straight Bar Pushdown", "Triceps", "Cable", 60),
@@ -159,29 +164,29 @@ export const EXERCISE_LIBRARY_RAW = [
   lx("Preacher Curl", "Biceps", "Machine", 75),
   lx("Rope Hammer Curl", "Biceps", "Cable", 60),
   // Quads
-  lx("Back Squat", "Quads", "Barbell", 180),
-  lx("Front Squat", "Quads", "Barbell", 150),
-  lx("Leg Press", "Quads", "Machine", 120),
-  lx("Hack Squat", "Quads", "Machine", 120),
-  lx("Leg Extension", "Quads", "Machine", 75),
-  lx("Bulgarian Split Squat", "Quads", "Dumbbell", 90),
-  lx("Walking Lunges", "Quads", "Dumbbell", 90),
-  lx("Goblet Squat", "Quads", "Dumbbell", 90),
+  lx("Back Squat", "Legs", "Barbell", 180),
+  lx("Front Squat", "Legs", "Barbell", 150),
+  lx("Leg Press", "Legs", "Machine", 120),
+  lx("Hack Squat", "Legs", "Machine", 120),
+  lx("Leg Extension", "Legs", "Machine", 75),
+  lx("Bulgarian Split Squat", "Legs", "Dumbbell", 90),
+  lx("Walking Lunges", "Legs", "Dumbbell", 90),
+  lx("Goblet Squat", "Legs", "Dumbbell", 90),
   // Hamstrings
-  lx("Romanian Deadlift", "Hamstrings", "Barbell", 150),
-  lx("Dumbbell RDL", "Hamstrings", "Dumbbell", 120),
-  lx("Lying Leg Curl", "Hamstrings", "Machine", 75),
-  lx("Seated Leg Curl", "Hamstrings", "Machine", 75),
-  lx("Nordic Curl", "Hamstrings", "Bodyweight", 90),
+  lx("Romanian Deadlift", "Legs", "Barbell", 150),
+  lx("Dumbbell RDL", "Legs", "Dumbbell", 120),
+  lx("Lying Leg Curl", "Legs", "Machine", 75),
+  lx("Seated Leg Curl", "Legs", "Machine", 75),
+  lx("Nordic Curl", "Legs", "Bodyweight", 90),
   // Glutes
-  lx("Hip Thrust", "Glutes", "Barbell", 120),
-  lx("Glute Bridge", "Glutes", "Barbell", 90),
-  lx("Cable Kickback", "Glutes", "Cable", 60),
-  lx("Step-Ups", "Quads", "Dumbbell", 75),
+  lx("Hip Thrust", "Legs", "Barbell", 120),
+  lx("Glute Bridge", "Legs", "Barbell", 90),
+  lx("Cable Kickback", "Legs", "Cable", 60),
+  lx("Step-Ups", "Legs", "Dumbbell", 75),
   // Calves
-  lx("Standing Calf Raise", "Calves", "Machine", 60),
-  lx("Seated Calf Raise", "Calves", "Machine", 60),
-  lx("Leg Press Calf Raise", "Calves", "Machine", 60),
+  lx("Standing Calf Raise", "Legs", "Machine", 60),
+  lx("Seated Calf Raise", "Legs", "Machine", 60),
+  lx("Leg Press Calf Raise", "Legs", "Machine", 60),
   // Core
   lx("Hanging Leg Raise", "Core", "Bodyweight", 60),
   lx("Cable Crunch", "Core", "Cable", 60),
@@ -239,7 +244,7 @@ export const EXERCISE_LIBRARY_RAW = [
   lx("Arnold Press", "Shoulders", "Dumbbell", 120),
   lx("Cable Lateral Raise", "Shoulders", "Cable", 60),
   lx("Machine Lateral Raise", "Shoulders", "Machine", 60),
-  lx("Reverse Pec Deck", "Shoulders", "Machine", 60),
+  lx("Reverse Pec Deck", "Back", "Machine", 60),
   lx("Upright Row", "Shoulders", "Barbell", 75),
   lx("Front Raise", "Shoulders", "Dumbbell", 60),
   lx("Landmine Press", "Shoulders", "Barbell", 90),
@@ -261,32 +266,32 @@ export const EXERCISE_LIBRARY_RAW = [
   lx("Reverse Curl", "Biceps", "Barbell", 60),
 
   // More Quads
-  lx("Front Squat", "Quads", "Barbell", 180),
-  lx("Hack Squat", "Quads", "Machine", 150),
-  lx("Bulgarian Split Squat", "Quads", "Dumbbell", 90),
-  lx("Walking Lunge", "Quads", "Dumbbell", 90),
-  lx("Goblet Squat", "Quads", "Dumbbell", 90),
-  lx("Smith Machine Squat", "Quads", "Machine", 150),
-  lx("Step-Up", "Quads", "Dumbbell", 75),
+  lx("Front Squat", "Legs", "Barbell", 180),
+  lx("Hack Squat", "Legs", "Machine", 150),
+  lx("Bulgarian Split Squat", "Legs", "Dumbbell", 90),
+  lx("Walking Lunge", "Legs", "Dumbbell", 90),
+  lx("Goblet Squat", "Legs", "Dumbbell", 90),
+  lx("Smith Machine Squat", "Legs", "Machine", 150),
+  lx("Step-Up", "Legs", "Dumbbell", 75),
 
   // More Hamstrings
-  lx("Seated Leg Curl", "Hamstrings", "Machine", 75),
-  lx("Lying Leg Curl", "Hamstrings", "Machine", 75),
-  lx("Stiff-Leg Deadlift", "Hamstrings", "Barbell", 120),
-  lx("Good Morning", "Hamstrings", "Barbell", 120),
-  lx("Nordic Curl", "Hamstrings", "Bodyweight", 90),
+  lx("Seated Leg Curl", "Legs", "Machine", 75),
+  lx("Lying Leg Curl", "Legs", "Machine", 75),
+  lx("Stiff-Leg Deadlift", "Legs", "Barbell", 120),
+  lx("Good Morning", "Legs", "Barbell", 120),
+  lx("Nordic Curl", "Legs", "Bodyweight", 90),
 
   // More Glutes
-  lx("Barbell Hip Thrust", "Glutes", "Barbell", 120),
-  lx("Cable Kickback", "Glutes", "Cable", 45),
-  lx("Glute Bridge", "Glutes", "Barbell", 75),
-  lx("Reverse Lunge", "Quads", "Dumbbell", 75),
-  lx("Sumo Deadlift", "Glutes", "Barbell", 180),
+  lx("Barbell Hip Thrust", "Legs", "Barbell", 120),
+  lx("Cable Kickback", "Legs", "Cable", 45),
+  lx("Glute Bridge", "Legs", "Barbell", 75),
+  lx("Reverse Lunge", "Legs", "Dumbbell", 75),
+  lx("Sumo Deadlift", "Legs", "Barbell", 180),
 
   // More Calves
-  lx("Seated Calf Raise", "Calves", "Machine", 45),
-  lx("Standing Calf Raise", "Calves", "Machine", 45),
-  lx("Leg Press Calf Raise", "Calves", "Machine", 45),
+  lx("Seated Calf Raise", "Legs", "Machine", 45),
+  lx("Standing Calf Raise", "Legs", "Machine", 45),
+  lx("Leg Press Calf Raise", "Legs", "Machine", 45),
 
   // More Core
   lx("Hanging Leg Raise", "Core", "Bodyweight", 60),
@@ -319,7 +324,7 @@ export const EXERCISE_LIBRARY_RAW = [
   lx("Wide-Grip Cable Row", "Back", "Cable", 90),
   lx("Single-Arm Lat Pulldown", "Back", "Cable", 75),
   lx("Reverse-Grip Lat Pulldown", "Back", "Cable", 90),
-  lx("Face Pull", "Shoulders", "Cable", 60),
+  lx("Face Pull", "Back", "Cable", 60),
   lx("Snatch-Grip Deadlift", "Back", "Barbell", 180),
   lx("Trap Bar Deadlift", "Back", "Barbell", 180),
   lx("Barbell Shrug", "Back", "Barbell", 75),
@@ -350,30 +355,31 @@ export const EXERCISE_LIBRARY_RAW = [
   lx("Zottman Curl", "Biceps", "Dumbbell", 60),
   lx("Machine Preacher Curl", "Biceps", "Machine", 60),
   // Quads
-  lx("Back Squat", "Quads", "Barbell", 180),
-  lx("Pause Squat", "Quads", "Barbell", 180),
-  lx("Safety Bar Squat", "Quads", "Barbell", 180),
-  lx("Box Squat", "Quads", "Barbell", 180),
-  lx("Belt Squat", "Quads", "Machine", 120),
-  lx("Sissy Squat", "Quads", "Bodyweight", 75),
-  lx("Reverse Nordic", "Quads", "Bodyweight", 75),
-  lx("Split Squat", "Quads", "Dumbbell", 90),
+  lx("Back Squat", "Legs", "Barbell", 180),
+  lx("Pause Squat", "Legs", "Barbell", 180),
+  lx("Safety Bar Squat", "Legs", "Barbell", 180),
+  lx("Box Squat", "Legs", "Barbell", 180),
+  lx("Belt Squat", "Legs", "Machine", 120),
+  lx("Sissy Squat", "Legs", "Bodyweight", 75),
+  lx("Reverse Nordic", "Legs", "Bodyweight", 75),
+  lx("Split Squat", "Legs", "Dumbbell", 90),
   // Hamstrings
-  lx("Romanian Deadlift", "Hamstrings", "Barbell", 150),
-  lx("Single-Leg RDL", "Hamstrings", "Dumbbell", 90),
-  lx("Glute-Ham Raise", "Hamstrings", "Bodyweight", 90),
-  lx("Cable Pull-Through", "Glutes", "Cable", 75),
-  lx("Standing Leg Curl", "Hamstrings", "Machine", 60),
+  lx("Romanian Deadlift", "Legs", "Barbell", 150),
+  lx("Single-Leg RDL", "Legs", "Dumbbell", 90),
+  lx("Glute-Ham Raise", "Legs", "Bodyweight", 90),
+  lx("Cable Pull-Through", "Legs", "Cable", 75),
+  lx("Standing Leg Curl", "Legs", "Machine", 60),
   // Glutes
-  lx("Single-Leg Hip Thrust", "Glutes", "Bodyweight", 75),
-  lx("Machine Hip Thrust", "Glutes", "Machine", 90),
-  lx("Frog Pump", "Glutes", "Dumbbell", 60),
-  lx("Curtsy Lunge", "Glutes", "Dumbbell", 75),
-  lx("Hip Abduction Machine", "Glutes", "Machine", 60),
+  lx("Single-Leg Hip Thrust", "Legs", "Bodyweight", 75),
+  lx("Machine Hip Thrust", "Legs", "Machine", 90),
+  lx("Frog Pump", "Legs", "Dumbbell", 60),
+  lx("Curtsy Lunge", "Legs", "Dumbbell", 75),
+  lx("Hip Abduction Machine", "Legs", "Machine", 60),
+  lx("Hip Adduction Machine", "Legs", "Machine", 60),
   // Calves
-  lx("Donkey Calf Raise", "Calves", "Machine", 45),
-  lx("Single-Leg Calf Raise", "Calves", "Bodyweight", 45),
-  lx("Smith Machine Calf Raise", "Calves", "Machine", 45),
+  lx("Donkey Calf Raise", "Legs", "Machine", 45),
+  lx("Single-Leg Calf Raise", "Legs", "Bodyweight", 45),
+  lx("Smith Machine Calf Raise", "Legs", "Machine", 45),
   // Core
   lx("Hanging Knee Raise", "Core", "Bodyweight", 60),
   lx("Toes-to-Bar", "Core", "Bodyweight", 75),
@@ -411,7 +417,7 @@ export function autoMuscleForDay(day, kind) {
   const tag = day?.tag;
   if (tag === "PUSH") return "Chest";
   if (tag === "PULL") return "Back";
-  if (tag === "LEGS") return "Quads";
+  if (tag === "LEGS") return "Legs";
   // For custom/full-body days, fall back to whatever the day's own exercises lean toward.
   if (day?.exercises?.length) {
     const counts = {};
@@ -475,7 +481,7 @@ export const WORKOUT_DAYS = [
       ex("legs-a-2", "Quad Isolation", "Leg Extension", ["Sissy Squat", "Spanish Squat"], "3", "12–15", 75, 3),
       ex("legs-a-3", "Hamstring Isolation", "Lying Leg Curl", ["Seated Leg Curl", "Nordic Curl"], "3", "10–15", 75, 3),
       ex("legs-a-4", "Unilateral Quad / Glute", "Bulgarian Split Squat", ["Walking Lunges", "Step-Ups"], "3", "10–12/leg", 90, 3),
-      ex("legs-a-5", "Calves", "Standing Calf Raise", ["Leg Press Calf Raise"], "4", "10–15", 60, 4),
+      ex("legs-a-5", "Legs", "Standing Calf Raise", ["Leg Press Calf Raise"], "4", "10–15", 60, 4),
       ex("legs-a-6", "Core", "Cable Crunch", ["Hanging Leg Raise", "Weighted Plank"], "3", "12–15", 60, 3),
     ],
   },
@@ -511,10 +517,10 @@ export const WORKOUT_DAYS = [
     subtitle: "Hamstring / Glute-Dominant",
     exercises: [
       ex("legs-b-1", "Primary Hip Hinge", "Romanian Deadlift", ["Dumbbell RDL", "Hip Thrust"], "4", "6–10", 150, 4),
-      ex("legs-b-2", "Glutes", "Hip Thrust", ["Dumbbell RDL", "Walking Lunges"], "3–4", "8–12", 120, 4),
+      ex("legs-b-2", "Legs", "Hip Thrust", ["Dumbbell RDL", "Walking Lunges"], "3–4", "8–12", 120, 4),
       ex("legs-b-3", "Hamstring Isolation", "Seated Leg Curl", ["Lying Leg Curl", "Nordic Curl"], "3", "10–15", 75, 3),
       ex("legs-b-4", "Quad Balance", "Leg Press (high foot placement)", ["Hack Squat", "Back Squat"], "3", "10–15", 90, 3),
-      ex("legs-b-5", "Calves", "Seated Calf Raise", ["Standing Calf Raise", "Leg Press Calf Raise"], "4", "10–15", 60, 4),
+      ex("legs-b-5", "Legs", "Seated Calf Raise", ["Standing Calf Raise", "Leg Press Calf Raise"], "4", "10–15", 60, 4),
       ex("legs-b-6", "Core", "Hanging Leg Raise", ["Cable Crunch", "Weighted Plank"], "3", "10–15", 60, 3),
     ],
   },

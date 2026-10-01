@@ -1,9 +1,10 @@
 import { useMemo, useState } from "react";
-import { Activity, ArrowLeft, Clock, Dumbbell, Plus, Search, X } from "lucide-react";
-import { EquipPill } from "./atoms";
+import { Activity, ArrowLeft, Clock, Dumbbell, Plus, Search, Star, X } from "lucide-react";
+import { EquipPill, FavoriteStar } from "./atoms";
 import { C } from "../lib/constants";
 import { EQUIPMENT_FILTERS, MUSCLE_ORDER, mergeLibrary } from "../lib/exerciseLibrary";
 import { lastPerformanceFor } from "../lib/sessionUtils";
+import { favoriteSet, favoritesFirst } from "../lib/favorites";
 
 function CustomExerciseForm({ onCreate }) {
   const [name, setName] = useState("");
@@ -42,13 +43,14 @@ function CustomExerciseForm({ onCreate }) {
   );
 }
 
-export function LibraryScreen({ sessions, customExercises, onBack, onNewCustomExercise }) {
+export function LibraryScreen({ sessions, customExercises, onBack, onNewCustomExercise, favorites, onToggleFavorite }) {
   const [q, setQ] = useState("");
   const [filter, setFilter] = useState("All");
   const [openName, setOpenName] = useState(null);
   const [showCreate, setShowCreate] = useState(false);
 
   const fullLibrary = useMemo(() => mergeLibrary(customExercises), [customExercises]);
+  const favSet = useMemo(() => favoriteSet(favorites), [favorites]);
   const results = useMemo(() => {
     const needle = q.trim().toLowerCase();
     const list = fullLibrary.filter((e) => {
@@ -61,6 +63,46 @@ export function LibraryScreen({ sessions, customExercises, onBack, onNewCustomEx
     return byMuscle;
   }, [q, filter, fullLibrary]);
 
+  const favorited = useMemo(
+    () => Object.values(results).flat().filter((e) => favSet.has(e.name.trim().toLowerCase())),
+    [results, favSet],
+  );
+
+  // One row, reused by the starred section and the muscle groups below it, so a starred
+  // exercise behaves identically in both places.
+  function row(e) {
+    const open = openName === e.name;
+    const last = open ? lastPerformanceFor(sessions, e.name) : null;
+    return (
+      <div key={e.name} className="rounded-2xl overflow-hidden" style={{ backgroundColor: C.bg, border: `1px solid ${open ? C.border2 : C.border}` }}>
+        <div className="flex items-center pr-1.5">
+          <button onClick={() => setOpenName(open ? null : e.name)} className="flex-1 min-w-0 p-3.5 flex items-center gap-3 text-left">
+            <div className="flex-1 min-w-0">
+              <div className="text-[14px] font-semibold truncate" style={{ color: C.ink }}>{e.name}</div>
+              <div className="mt-1"><EquipPill equipment={e.equipment} /></div>
+            </div>
+          </button>
+          {onToggleFavorite && <FavoriteStar on={favSet.has(e.name.trim().toLowerCase())} onToggle={() => onToggleFavorite(e.name)} name={e.name} />}
+        </div>
+        {open && (
+          <div className="px-3.5 pb-3.5 -mt-1">
+            {last ? (
+              <div className="rounded-xl p-3 flex items-center gap-2.5" style={{ backgroundColor: C.surface }}>
+                <Clock size={14} style={{ color: C.ink3 }} />
+                <div>
+                  <div className="text-[13px] font-semibold" style={{ color: C.ink }}>Last time: {last.sets[0]?.weight ?? "—"} lb × {last.sets[0]?.reps ?? "—"}</div>
+                  <div className="text-[11.5px]" style={{ color: C.ink3 }}>{new Date(last.date).toLocaleDateString()}</div>
+                </div>
+              </div>
+            ) : (
+              <div className="rounded-xl p-3 text-[13px]" style={{ backgroundColor: C.surface, color: C.ink3 }}>You haven't logged this exercise yet.</div>
+            )}
+          </div>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div className="px-5 pt-5 pb-32">
       <div className="flex items-center gap-2 mb-5">
@@ -68,10 +110,14 @@ export function LibraryScreen({ sessions, customExercises, onBack, onNewCustomEx
         <h1 className="text-[20px] font-bold tracking-tight" style={{ color: C.ink }}>Library</h1>
       </div>
 
-      <div className="flex items-center gap-2 rounded-2xl px-3.5 py-3 mb-3" style={{ backgroundColor: C.surface }}>
-        <Search size={17} style={{ color: C.ink3 }} />
-        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search exercises or muscle" className="flex-1 bg-transparent outline-none text-[15px]" style={{ color: C.ink }} />
-        {q && <button onClick={() => setQ("")} aria-label="Clear"><X size={16} style={{ color: C.ink3 }} /></button>}
+      {/* Sticky for the same reason as the add-exercise list: hundreds of rows, and
+          narrowing them down should never mean scrolling back to the top first. */}
+      <div className="-mx-5 px-5 pt-1 pb-2 mb-1" style={{ position: "sticky", top: "env(safe-area-inset-top, 0px)", zIndex: 20, backgroundColor: C.bg }}>
+        <div className="flex items-center gap-2 rounded-2xl px-3.5 py-3" style={{ backgroundColor: C.surface }}>
+          <Search size={17} style={{ color: C.ink3 }} />
+          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search exercises or muscle" className="flex-1 bg-transparent outline-none text-[15px]" style={{ color: C.ink }} />
+          {q && <button onClick={() => setQ("")} aria-label="Clear"><X size={16} style={{ color: C.ink3 }} /></button>}
+        </div>
       </div>
       <div className="flex gap-1.5 mb-5 overflow-x-auto pb-1">
         {EQUIPMENT_FILTERS.map((f) => (
@@ -80,42 +126,21 @@ export function LibraryScreen({ sessions, customExercises, onBack, onNewCustomEx
         ))}
       </div>
 
+      {favorited.length > 0 && (
+        <div className="mb-5">
+          <div className="text-[11px] uppercase tracking-[0.14em] font-bold mb-2 flex items-center gap-1.5" style={{ color: C.push }}>
+            <Star size={12} fill={C.push} strokeWidth={2} /> Starred
+          </div>
+          <div className="flex flex-col gap-2">{favorited.map(row)}</div>
+        </div>
+      )}
+
       {Object.keys(results).length === 0 ? (
         <div className="text-center py-10 text-[14px]" style={{ color: C.ink3 }}>No matches. Try another search.</div>
       ) : MUSCLE_ORDER.filter((m) => results[m]).map((muscle) => (
         <div key={muscle} className="mb-5">
           <div className="text-[11px] uppercase tracking-[0.14em] font-bold mb-2" style={{ color: C.ink3 }}>{muscle}</div>
-          <div className="flex flex-col gap-2">
-            {results[muscle].map((e) => {
-              const open = openName === e.name;
-              const last = open ? lastPerformanceFor(sessions, e.name) : null;
-              return (
-                <div key={e.name} className="rounded-2xl overflow-hidden" style={{ backgroundColor: C.bg, border: `1px solid ${open ? C.border2 : C.border}` }}>
-                  <button onClick={() => setOpenName(open ? null : e.name)} className="w-full p-3.5 flex items-center gap-3 text-left">
-                    <div className="flex-1 min-w-0">
-                      <div className="text-[14px] font-semibold truncate" style={{ color: C.ink }}>{e.name}</div>
-                      <div className="mt-1"><EquipPill equipment={e.equipment} /></div>
-                    </div>
-                  </button>
-                  {open && (
-                    <div className="px-3.5 pb-3.5 -mt-1">
-                      {last ? (
-                        <div className="rounded-xl p-3 flex items-center gap-2.5" style={{ backgroundColor: C.surface }}>
-                          <Clock size={14} style={{ color: C.ink3 }} />
-                          <div>
-                            <div className="text-[13px] font-semibold" style={{ color: C.ink }}>Last time: {last.sets[0]?.weight ?? "—"} lb × {last.sets[0]?.reps ?? "—"}</div>
-                            <div className="text-[11.5px]" style={{ color: C.ink3 }}>{new Date(last.date).toLocaleDateString()}</div>
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="rounded-xl p-3 text-[13px]" style={{ backgroundColor: C.surface, color: C.ink3 }}>You haven't logged this exercise yet.</div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
+          <div className="flex flex-col gap-2">{favoritesFirst(results[muscle], favSet).map(row)}</div>
         </div>
       ))}
 

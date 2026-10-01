@@ -6,8 +6,9 @@ import { muscleForLift, normalizeLiftName } from "../src/lib/muscleMapping.js";
 import { lastPerformanceFor } from "../src/lib/sessionUtils.js";
 import { topSetForLift, lastLiftForSlot, generateInsights } from "../src/lib/insights.js";
 import { heatmapStatus, regionContributionsFor, HEATMAP_REGIONS } from "../src/lib/heatmapData.js";
-import { DEFAULT_LANDMARKS, REGION_TO_MUSCLE, resolveLandmarks } from "../src/lib/landmarks.js";
+import { DEFAULT_LANDMARKS, MUSCLE_GROUPS, REGION_TO_MUSCLE, resolveLandmarks } from "../src/lib/landmarks.js";
 import { buildBackup, parseBackup, mergeBackup } from "../src/lib/backup.js";
+import { isFavorite, toggleFavorite } from "../src/lib/favorites.js";
 
 /* Every test here corresponds to an invariant in PROJECT_OVERVIEW.md §8, and every
    invariant there was a real bug that shipped and got reported. The point of the file is
@@ -100,22 +101,25 @@ test("§8.4 keyword heuristics resolve specific patterns before broad ones", () 
   for (const [name, muscle] of [
     ["Rear Delt Flye", "Shoulders"],
     ["Bent Over Fly", "Shoulders"],
-    ["Reverse Pec Flye", "Shoulders"],
+    ["Reverse Pec Flye", "Back"],
+    ["Cable Face Pull", "Back"],
     ["Cable Upright Row", "Shoulders"],
     ["Tricep Dips", "Triceps"],
-    ["Nordic Hamstring Curl", "Hamstrings"],
-    ["Seated Hamstring Curl", "Hamstrings"],
+    ["Nordic Hamstring Curl", "Legs"],
+    ["Seated Hamstring Curl", "Legs"],
     ["Chest Supported Row", "Back"],
-    ["Sumo Deadlift High Pull", "Glutes"],
+    ["Sumo Deadlift High Pull", "Legs"],
     ["Incline Chest Fly", "Chest"],
+    ["Cable Shoulder External Rotation", "Shoulders"],
+    ["Hip Adduction Machine", "Legs"],
   ]) {
     assert.equal(muscleForLift(name), muscle, `${name} should resolve to ${muscle}`);
   }
 });
 
 test("§8.5 partial matching prefers the longest match", () => {
-  assert.equal(muscleForLift("Barbell Romanian Deadlift"), "Hamstrings", '"Deadlift" must not shadow "Romanian Deadlift"');
-  assert.equal(muscleForLift("DB Romanian Deadlift"), "Hamstrings");
+  assert.equal(muscleForLift("Barbell Romanian Deadlift"), "Legs", '"Deadlift" (Back) must not shadow "Romanian Deadlift" (Legs)');
+  assert.equal(muscleForLift("DB Romanian Deadlift"), "Legs");
 });
 
 test("§8.5 a weak partial match falls through to the keyword rules", () => {
@@ -262,4 +266,120 @@ test("coach tips carry a stable id and a title for dismissal keying", () => {
     assert.ok(tip.id, "every tip needs an id");
     assert.ok(tip.title, "dismissal is keyed on id::title, so title must exist");
   }
+});
+
+/* ── one display category, ten body-map regions ─────────────────────────────
+   Lower body is a single "Legs" category in every list the user sees, but the heatmap
+   and the volume landmarks still work per muscle. That indirection lives in
+   classifyLegExercise, keyed on the exercise NAME — so if it ever regresses, a leg day
+   quietly colours the wrong part of the silhouette and the landmark comparison for
+   quads, hamstrings, glutes and calves all drift at once. */
+
+test("the Legs category still resolves to the right body-map region", () => {
+  for (const [name, region] of [
+    ["Back Squat", "Quads"],
+    ["Leg Press", "Quads"],
+    ["Bulgarian Split Squat", "Quads"],
+    ["Reverse Nordic", "Quads"],
+    ["Romanian Deadlift", "Hamstrings"],
+    ["Seated Leg Curl", "Hamstrings"],
+    ["Glute-Ham Raise", "Hamstrings"],
+    ["Hip Thrust", "Glutes"],
+    ["Cable Pull-Through", "Glutes"],
+    ["Hip Abduction Machine", "Glutes"],
+    ["Hip Adduction Machine", "Glutes"],
+    ["Standing Calf Raise", "Calves"],
+    ["Leg Press Calf Raise", "Calves"],
+  ]) {
+    const contributions = regionContributionsFor(name, muscleForLift(name));
+    assert.equal(muscleForLift(name), "Legs", `${name} belongs to the Legs category`);
+    assert.equal(contributions[0][0], region, `${name} should load ${region} first`);
+    assert.equal(contributions[0][1], 1, `${name} should treat ${region} as its primary`);
+  }
+});
+
+test("every Legs exercise lands on a real, non-Legs heatmap region", () => {
+  const legs = EXERCISE_LIBRARY.filter((e) => e.muscle === "Legs");
+  assert.ok(legs.length > 20, "the library should still hold a full lower-body catalogue");
+  for (const e of legs) {
+    for (const [region] of regionContributionsFor(e.name, e.muscle)) {
+      assert.ok(HEATMAP_REGIONS.includes(region), `${e.name} contributed to unknown region ${region}`);
+      assert.notEqual(region, "Legs", "Legs is a display category, never a heatmap region");
+    }
+  }
+});
+
+/* ── coach output is derived, never invented ────────────────────────────────
+   Every tip is a sentence about the user's own numbers, so each one has to be traceable
+   to a row in the log. The failure that prompted this was a confident "Back Squat: aim
+   for 365 lb" for someone who had never squatted. */
+
+test("every number the coach prints appears in the log it was given", () => {
+  const history = [
+    session(daysAgo(2), [ex("legs-a-1", "Back Squat", [set(225, 5, "Back Squat"), set(235, 3, "Back Squat")])]),
+    session(daysAgo(9), [ex("legs-a-1", "Back Squat", [set(225, 5, "Back Squat")])]),
+    session(daysAgo(16), [ex("legs-a-1", "Back Squat", [set(220, 5, "Back Squat")])]),
+  ];
+  const tips = generateInsights(history, {}, null);
+  assert.ok(tips.length, "a three-session history should produce at least one tip");
+  const logged = new Set(["220", "225", "235", "3", "5"]);
+  for (const tip of tips) {
+    // Every weight-shaped number in a tip must be one that was actually logged, a count
+    // the tip itself derives (sessions, days, percentages), or a date.
+    assert.ok(!/\b(36[0-9]|3[1-9][0-9])\b/.test(tip.title + tip.body), `invented weight in: ${tip.title}`);
+  }
+  const pr = tips.find((t) => t.id === "pr");
+  assert.ok(pr, "a 235 lb top set after a 225 lb best is a record");
+  assert.ok(pr.title.includes("235"), "the record must quote the weight that was logged");
+  assert.ok(pr.body.includes("225"), "and the previous best it beat");
+  assert.ok(logged.has("235"));
+});
+
+test("a first-ever log of a lift is a starting point, not a personal record", () => {
+  const history = [session(daysAgo(1), [ex("a", "Front Squat", [set(185, 5, "Front Squat")])])];
+  assert.equal(generateInsights(history, {}, null).find((t) => t.id === "pr"), undefined);
+});
+
+test("a stalled lift suppresses the add-5-lb tip for that same lift", () => {
+  const history = [
+    session(daysAgo(2), [ex("legs-a-1", "Back Squat", [set(225, 5, "Back Squat")])]),
+    session(daysAgo(10), [ex("legs-a-1", "Back Squat", [set(225, 5, "Back Squat")])]),
+    session(daysAgo(18), [ex("legs-a-1", "Back Squat", [set(225, 5, "Back Squat")])]),
+  ];
+  const nextDay = { id: "legs-a", exercises: [{ id: "legs-a-1", best: "Back Squat" }] };
+  const tips = generateInsights(history, {}, nextDay);
+  assert.ok(tips.find((t) => t.id === "stall"), "three sessions at one weight is a plateau");
+  assert.equal(tips.find((t) => t.id === "overload"), undefined, "'add 5 lb' contradicts the plateau advice");
+});
+
+/* ── starred exercises ─────────────────────────────────────────────────────── */
+
+test("starring is case-insensitive and toggles cleanly", () => {
+  let favs = toggleFavorite([], "Back Squat");
+  assert.deepEqual(favs, ["Back Squat"]);
+  assert.ok(isFavorite(favs, "back squat"), "matching must ignore case");
+  favs = toggleFavorite(favs, "BACK SQUAT");
+  assert.deepEqual(favs, [], "un-starring must match the same way starring did");
+  assert.deepEqual(toggleFavorite(["Back Squat"], "  "), ["Back Squat"], "a blank name changes nothing");
+});
+
+test("a backup carries starred exercises, and an older one doesn't wipe them", () => {
+  const state = { sessions: [], favorites: ["Back Squat"] };
+  assert.deepEqual(parseBackup(JSON.stringify(buildBackup(state))).data.favorites, ["Back Squat"]);
+  // A backup taken before starring existed has no favorites key at all.
+  const old = { format: "iron-log-backup", version: 1, data: { sessions: [] } };
+  assert.deepEqual(mergeBackup({ sessions: [], favorites: ["Hip Thrust"] }, old).favorites, ["Hip Thrust"]);
+});
+
+test("the Legs volume bar's landmarks are the sum of its four muscle groups", () => {
+  const lm = resolveLandmarks({});
+  for (let i = 0; i < 3; i++) {
+    const sum = ["Quads", "Hamstrings", "Glutes", "Calves"].reduce((a, m) => a + lm[m][i], 0);
+    assert.equal(lm.Legs[i], sum, "a combined set count needs a combined landmark to be read against");
+  }
+  // An override to one leg group has to move the combined total with it.
+  const bumped = resolveLandmarks({ Quads: [100, 200, 300] });
+  assert.equal(bumped.Legs[0], lm.Legs[0] - lm.Quads[0] + 100);
+  // Legs is derived, so it must never appear as its own editable muscle group.
+  assert.ok(!MUSCLE_GROUPS.includes("Legs"));
 });

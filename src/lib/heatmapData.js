@@ -1,4 +1,8 @@
-export const RANGE_OPTS = [["1W", 7], ["1M", 30], ["6M", 182], ["All Time", 100000]];
+// Sentinel "no window" length used by the All Time range — anything wider than the
+// 365-day retention, so it always means "everything the log holds".
+export const ALL_TIME_DAYS = 100000;
+
+export const RANGE_OPTS = [["1W", 7], ["1M", 30], ["6M", 182], ["All Time", ALL_TIME_DAYS]];
 
 /* ====================================================================== */
 /* MUSCLE HEATMAP — body-map engine                                       */
@@ -31,14 +35,36 @@ export function classifyBackExercise(name) {
   if (n.includes("shrug")) return [["Back", 1]];
   if (n.includes("pulldown") || n.includes("pull-up") || n.includes("pullup") || n.includes("chin-up") || n.includes("chin up"))
     return [["Back", 1], ["Biceps", 0.3]];
-  if (n.includes("face pull") || n.includes("rear delt") || n.includes("reverse fly") || n.includes("reverse pec"))
-    return [["Shoulders", 0.8], ["Back", 0.4]];
+  // Face pulls and the reverse pec deck are filed under Back in the library, so the body
+  // map credits Back as the primary — otherwise the colour would contradict the category
+  // the exercise is listed under. Rear delts still get real credit; they do the work.
+  if (n.includes("face pull") || n.includes("reverse pec")) return [["Back", 0.8], ["Shoulders", 0.5]];
+  if (n.includes("rear delt") || n.includes("reverse fly")) return [["Shoulders", 0.8], ["Back", 0.4]];
   if (n.includes("deadlift") || n.includes("rack pull") || n.includes("good morning") || n.includes("hyperextension"))
     return [["Back", 1], ["Glutes", 0.5], ["Hamstrings", 0.3]];
   if (n.includes("row")) return [["Back", 0.7], ["Biceps", 0.3]];
   return [["Back", 0.6]]; // generic back movement fallback
 }
 // Map a logged exercise to weighted heatmap-region contributions per set.
+
+
+// The mirror image of classifyBackExercise, for the combined "Legs" category. The
+// library sorts all lower body under one heading because that is how people browse it,
+// but the body map and the volume landmarks still work per muscle — so the region is
+// recovered from the exercise's own name. Order is load-bearing, exactly as in the name
+// heuristics: "Leg Press Calf Raise" is calves, not quads, and "Reverse Nordic" is a quad
+// movement that would otherwise be caught by the "nordic" hamstring rule.
+export function classifyLegExercise(name) {
+  const n = (name || "").toLowerCase();
+  if (n.includes("calf")) return [["Calves", 1]];
+  if (n.includes("abduction") || n.includes("adduction")) return [["Glutes", 1]];
+  if (n.includes("reverse nordic")) return [["Quads", 1]];
+  if (/rdl|romanian|leg curl|hamstring|nordic|good morning|stiff-leg|stiff leg|glute-ham|glute ham/.test(n))
+    return [["Hamstrings", 1], ["Glutes", 0.4]];
+  if (/hip thrust|glute|kickback|bridge|sumo|pull-through|pull through|frog pump|curtsy/.test(n))
+    return [["Glutes", 1], ["Hamstrings", 0.3]];
+  return [["Quads", 1], ["Glutes", 0.25]]; // squats, presses, extensions, lunges, step-ups
+}
 
 
 export function regionContributionsFor(exerciseName, libraryMuscle) {
@@ -48,6 +74,9 @@ export function regionContributionsFor(exerciseName, libraryMuscle) {
   if (m === "Shoulders") return [["Shoulders", 1], ["Triceps", 0.2]];
   if (m === "Triceps") return [["Triceps", 1], ["Shoulders", 0.15]];
   if (m === "Biceps") return [["Biceps", 1]];
+  if (m === "Legs") return classifyLegExercise(exerciseName);
+  // The four branches below are kept for custom exercises the user tagged by hand before
+  // lower body became a single category, and for history logged under those tags.
   if (m === "Quads") return [["Quads", 1], ["Glutes", 0.25]];
   if (m === "Hamstrings") return [["Hamstrings", 1], ["Glutes", 0.4]];
   if (m === "Glutes") return [["Glutes", 1], ["Hamstrings", 0.3]];

@@ -24,8 +24,19 @@ export const REGION_TO_MUSCLE = {
   Core: "Core", Glutes: "Glutes", Quads: "Quads", Hamstrings: "Hamstrings", Calves: "Calves",
 };
 
+// Lower body is one category in every exercise list (MUSCLE_ORDER), so its volume bar
+// needs a floor and a ceiling of its own. They are the sum of the four leg groups' —
+// the only reading consistent with the set count shown beside it, which is likewise the
+// sum of its parts. Derived rather than stored: it is NOT in MUSCLE_GROUPS, so the
+// landmark editor still edits quads, hamstrings, glutes and calves individually, and an
+// override to any of them flows straight through into this total.
+const DERIVED_GROUPS = { Legs: ["Quads", "Hamstrings", "Glutes", "Calves"] };
+
 export function resolveLandmarks(overrides) {
   const out = {};
   for (const m of MUSCLE_GROUPS) out[m] = (overrides && overrides[m]) || DEFAULT_LANDMARKS[m];
+  for (const [name, parts] of Object.entries(DERIVED_GROUPS)) {
+    out[name] = parts.reduce((acc, p) => [acc[0] + out[p][0], acc[1] + out[p][1], acc[2] + out[p][2]], [0, 0, 0]);
+  }
   return out;
 }

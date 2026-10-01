@@ -1,6 +1,6 @@
-import { Activity, Flame, Heart, Sparkles, Target, Zap } from "lucide-react";
-import { muscleForLift } from "./muscleMapping";
-import { lastPerformanceFor } from "./sessionUtils";
+import { Activity, ArrowLeftRight, CalendarClock, Flame, Footprints, Heart, Repeat, Snowflake, Sparkles, Target, TrendingDown, TrendingUp, Trophy, Zap } from "lucide-react";
+import { muscleForLift, normalizeLiftName } from "./muscleMapping";
+import { fmtShortDate, lastPerformanceFor } from "./sessionUtils";
 
 export function withinDays(iso, days) {
   return Date.now() - new Date(iso).getTime() <= days * 86400000;
@@ -85,21 +85,295 @@ export function topSetForLift(sessions, liftName) {
 }
 
 
+/* ====================================================================== */
+/* DERIVED STATISTICS                                                     */
+/* Every coach tip below is written off one of these. They only ever       */
+/* summarise rows that exist in the log — none of them fill a gap with an  */
+/* assumption, an average, or a "typical" starting number. If the data     */
+/* isn't there, the helper returns nothing and the tip is not emitted.     */
+/* ====================================================================== */
+
+// The library's own categories (MUSCLE_ORDER), minus Cardio and Other — so a tip never
+// names a muscle group the user cannot see anywhere else in the app.
+const MAJOR_MUSCLES = ["Chest", "Back", "Shoulders", "Biceps", "Triceps", "Legs", "Core"];
+const PUSH_MUSCLES = ["Chest", "Shoulders", "Triceps"];
+const PULL_MUSCLES = ["Back", "Biceps"];
+
+const fmtNum = (n) => Math.round(n).toLocaleString("en-US");
+const daysBetween = (a, b) => Math.floor((a - b) / 86400000);
+// Saved records carry an explicit `cardio` flag; older ones only carry the muscle.
+const isCardioRecord = (e) => !!e.cardio || e.muscle === "Cardio" || e.kind === "cardio";
+
+// One entry per (lift, session), oldest first, each holding that session's top-weight
+// set. Grouped by NORMALIZED name so "Barbell Bench Press" and "Bench Press" share a
+// line while Cable Fly and Cable Crossover stay apart.
+export function liftTimeline(sessions) {
+  const byLift = new Map();
+  for (const s of sessions || []) {
+    const t = new Date(s.date).getTime();
+    if (isNaN(t)) continue;
+    for (const e of (s.exercises || [])) {
+      if (!e.selectedLift) continue;
+      const sets = (e.sets || []).filter((st) => (Number(st.weight) || 0) > 0 && (Number(st.reps) || 0) > 0);
+      if (!sets.length) continue;
+      const key = normalizeLiftName(e.selectedLift);
+      const top = Math.max(...sets.map((st) => Number(st.weight) || 0));
+      const topReps = Math.max(...sets.filter((st) => (Number(st.weight) || 0) === top).map((st) => Number(st.reps) || 0));
+      const list = byLift.get(key) || [];
+      // The same lift can appear twice in one workout (e.g. re-added after a superset).
+      // Collapse those into the session's single heaviest showing rather than letting one
+      // workout look like two sessions of progress.
+      const same = list.find((x) => x.date === s.date);
+      if (same) { if (top > same.top) { same.top = top; same.topReps = topReps; } }
+      else list.push({ t, date: s.date, lift: e.selectedLift, top, topReps, setCount: sets.length });
+      byLift.set(key, list);
+    }
+  }
+  for (const list of byLift.values()) list.sort((a, b) => a.t - b.t);
+  return byLift;
+}
+
+// Working sets per muscle over a window, plus when each muscle was last touched.
+export function muscleStats(sessions, days) {
+  const sets = {}, lastHit = {};
+  for (const s of sessions || []) {
+    const t = new Date(s.date).getTime();
+    if (isNaN(t)) continue;
+    const inWindow = days == null || Date.now() - t <= days * 86400000;
+    for (const e of (s.exercises || [])) {
+      const n = (e.sets || []).length;
+      if (!n || isCardioRecord(e)) continue;
+      const mus = muscleForLift(e.selectedLift);
+      if (inWindow) sets[mus] = (sets[mus] || 0) + n;
+      if (!lastHit[mus] || t > lastHit[mus]) lastHit[mus] = t;
+    }
+  }
+  return { sets, lastHit };
+}
+
+// Total weight moved inside a half-open window, measured in whole 7-day blocks back
+// from now so every block being compared is the same length. Comparing a part-finished
+// calendar week against finished ones would report a crash in volume every Monday.
+function volumeInBlock(sessions, blocksAgo) {
+  const end = Date.now() - blocksAgo * 7 * 86400000;
+  const start = end - 7 * 86400000;
+  let v = 0, count = 0;
+  for (const s of sessions || []) {
+    const t = new Date(s.date).getTime();
+    if (isNaN(t) || t < start || t >= end) continue;
+    v += s.volume || 0;
+    count++;
+  }
+  return { volume: v, count };
+}
+
+
+/* ====================================================================== */
+/* TIP GENERATORS — one concern each, each returns a tip or null          */
+/* ====================================================================== */
+
+// Days since the last session, when that gap is long enough to be worth naming.
+function layoffTip(sessions) {
+  const last = sessions[0];
+  if (!last) return null;
+  const days = daysBetween(Date.now(), new Date(last.date).getTime());
+  if (days < 5 || days > 60) return null;
+  return {
+    id: "layoff", icon: CalendarClock, tone: "warn",
+    title: `${days} days since your last session`,
+    body: `Your last workout was ${last.dayTitle || "a session"} on ${fmtShortDate(last.date)}. Strength holds for a couple of weeks — come back at the same weights rather than restarting lower.`,
+  };
+}
+
+// A heavier top set than this lift has ever shown, or the same weight for more reps.
+// Needs prior history for the lift: a first-ever log is a starting point, not a record.
+function recordTip(timeline) {
+  let best = null;
+  for (const entries of timeline.values()) {
+    if (entries.length < 2) continue;
+    const latest = entries[entries.length - 1];
+    if (daysBetween(Date.now(), latest.t) > 14) continue;
+    const prior = entries.slice(0, -1);
+    const priorBest = Math.max(...prior.map((e) => e.top));
+    if (latest.top > priorBest) {
+      const gain = latest.top - priorBest;
+      if (!best || gain > best.gain) {
+        best = {
+          gain, t: latest.t,
+          tip: {
+            id: "pr", icon: Trophy, tone: "good",
+            title: `New best: ${latest.lift} ${fmtNum(latest.top)} lb`,
+            body: `${fmtNum(latest.top)} lb × ${latest.topReps} on ${fmtShortDate(latest.date)}, past your previous best of ${fmtNum(priorBest)} lb. Hold this weight until all your sets are clean, then add 5.`,
+          },
+        };
+      }
+      continue;
+    }
+    // No new weight — but more reps at the same top weight is still a record, and it's
+    // the progression that earns the next jump.
+    const atSame = prior.filter((e) => e.top === latest.top);
+    if (atSame.length && latest.topReps > Math.max(...atSame.map((e) => e.topReps)) && !best) {
+      best = {
+        gain: 0, t: latest.t,
+        tip: {
+          id: "pr", icon: Trophy, tone: "good",
+          title: `${latest.lift}: new rep best at ${fmtNum(latest.top)} lb`,
+          body: `${latest.topReps} reps on ${fmtShortDate(latest.date)}, up from ${Math.max(...atSame.map((e) => e.topReps))}. Reps first, then weight — that's the jump earned.`,
+        },
+      };
+    }
+  }
+  return best ? best.tip : null;
+}
+
+// Three logged sessions of a lift with no new top weight across them. Returns the tip
+// plus the normalized lift name, so the "add 5 lb" tip for the same lift can stand down.
+function stallTip(timeline) {
+  let worst = null;
+  for (const [key, entries] of timeline) {
+    if (entries.length < 3) continue;
+    const last3 = entries.slice(-3);
+    if (daysBetween(Date.now(), last3[2].t) > 21) continue;
+    if (Math.max(last3[1].top, last3[2].top) > last3[0].top) continue;
+    const span = daysBetween(last3[2].t, last3[0].t);
+    if (span < 7) continue; // three sessions inside a week is a cluster, not a plateau
+    if (!worst || last3[2].t > worst.t) {
+      const cur = last3[2];
+      const deload = Math.max(5, Math.round((cur.top * 0.9) / 5) * 5);
+      worst = {
+        t: cur.t, key,
+        tip: {
+          id: "stall", icon: Repeat, tone: "warn",
+          title: `${cur.lift} hasn't moved in 3 sessions`,
+          body: `Top sets went ${fmtNum(last3[0].top)} → ${fmtNum(last3[1].top)} → ${fmtNum(cur.top)} lb over ${span} days. Chase one extra rep at ${fmtNum(cur.top)} lb before adding weight, or drop to ${fmtNum(deload)} lb for a week and build back through it.`,
+        },
+      };
+    }
+  }
+  return worst;
+}
+
+// A muscle the user does train, that hasn't been touched in a fortnight.
+function coldMuscleTip(sessions) {
+  const last = sessions[0];
+  if (!last || daysBetween(Date.now(), new Date(last.date).getTime()) > 10) return null;
+  const { lastHit } = muscleStats(sessions, null);
+  const history = muscleStats(sessions, 120).sets;
+  let pick = null;
+  for (const m of MAJOR_MUSCLES) {
+    if (!lastHit[m] || (history[m] || 0) < 4) continue;
+    const days = daysBetween(Date.now(), lastHit[m]);
+    if (days < 14 || days > 120) continue;
+    if (!pick || days > pick.days) pick = { muscle: m, days, at: lastHit[m] };
+  }
+  if (!pick) return null;
+  const since = sessions.filter((s) => new Date(s.date).getTime() > pick.at).length;
+  return {
+    id: "cold", icon: Snowflake, tone: "warn",
+    title: `${pick.muscle} hasn't been trained in ${pick.days} days`,
+    body: `Your last ${pick.muscle.toLowerCase()} sets were ${fmtShortDate(new Date(pick.at).toISOString())}, and you've logged ${since} session${since === 1 ? "" : "s"} since without it.`,
+  };
+}
+
+// Push volume against pull volume over the last month.
+function balanceTip(sessions) {
+  const recent = sessions.filter((s) => withinDays(s.date, 30));
+  if (recent.length < 4) return null;
+  const { sets } = muscleStats(recent, 30);
+  const push = PUSH_MUSCLES.reduce((a, m) => a + (sets[m] || 0), 0);
+  const pull = PULL_MUSCLES.reduce((a, m) => a + (sets[m] || 0), 0);
+  if (!push || !pull || push + pull < 20) return null;
+  const ratio = push / pull;
+  if (ratio >= 1.6) {
+    return {
+      id: "balance", icon: ArrowLeftRight, tone: "warn",
+      title: `You're pushing ${ratio.toFixed(1)}× more than you pull`,
+      body: `Last 30 days: ${fmtNum(push)} push sets vs ${fmtNum(pull)} pull sets. Rows and pulldowns are what keep the shoulders behind all that pressing healthy — an extra pull set or two evens it out.`,
+    };
+  }
+  if (ratio <= 0.625) {
+    return {
+      id: "balance", icon: ArrowLeftRight, tone: "warn",
+      title: `You're pulling ${(1 / ratio).toFixed(1)}× more than you push`,
+      body: `Last 30 days: ${fmtNum(pull)} pull sets vs ${fmtNum(push)} push sets. Pressing volume has fallen behind — worth a set back on chest or shoulders.`,
+    };
+  }
+  return null;
+}
+
+// Last 7 days of tonnage against the 3 equal-length blocks before it.
+function volumeTip(sessions) {
+  const cur = volumeInBlock(sessions, 0);
+  if (!cur.count) return null;
+  const prior = [1, 2, 3].map((b) => volumeInBlock(sessions, b));
+  if (prior.filter((p) => p.count > 0).length < 2) return null;
+  const avg = prior.reduce((a, p) => a + p.volume, 0) / prior.length;
+  if (!(avg > 0) || !(cur.volume > 0)) return null;
+  const pct = ((cur.volume - avg) / avg) * 100;
+  if (Math.abs(pct) < 20) return null;
+  if (pct > 0) {
+    return {
+      id: "volume", icon: TrendingUp, tone: "good",
+      title: `Volume is up ${Math.round(pct)}% over the last 7 days`,
+      body: `${fmtNum(cur.volume)} lb moved across ${cur.count} session${cur.count === 1 ? "" : "s"}, against a ${fmtNum(avg)} lb average over the 3 weeks before. Big jumps are where niggles start — hold here for a week before climbing again.`,
+    };
+  }
+  return {
+    id: "volume", icon: TrendingDown, tone: "warn",
+    title: `Volume is down ${Math.round(Math.abs(pct))}% over the last 7 days`,
+    body: `${fmtNum(cur.volume)} lb moved across ${cur.count} session${cur.count === 1 ? "" : "s"}, against a ${fmtNum(avg)} lb average over the 3 weeks before. Fine if it's a deload — otherwise one more working set per exercise closes the gap.`,
+  };
+}
+
+// Only speaks to someone who already does cardio.
+function cardioTip(sessions) {
+  let lastCardio = null, name = "", cardioSessions = 0;
+  for (const s of sessions || []) {
+    const t = new Date(s.date).getTime();
+    if (isNaN(t)) continue;
+    const c = (s.exercises || []).find(isCardioRecord);
+    if (!c) continue;
+    cardioSessions++;
+    if (!lastCardio || t > lastCardio) { lastCardio = t; name = c.selectedLift || "cardio"; }
+  }
+  if (cardioSessions < 2 || !lastCardio) return null;
+  const days = daysBetween(Date.now(), lastCardio);
+  if (days < 14 || days > 120) return null;
+  const since = sessions.filter((s) => new Date(s.date).getTime() > lastCardio).length;
+  return {
+    id: "cardio", icon: Footprints, tone: "warn",
+    title: `No cardio logged in ${days} days`,
+    body: `Your last was ${name} on ${fmtShortDate(new Date(lastCardio).toISOString())}, with ${since} session${since === 1 ? "" : "s"} since. You've built the habit before — one easy session keeps the conditioning you already paid for.`,
+  };
+}
+
+
 export function generateInsights(sessions, allDaysById, nextDay) {
-  const out = [];
   if (!sessions.length) {
-    out.push({ id: "welcome", icon: Sparkles, tone: "accent", title: "Log your first session", body: "Once you train a few times, your coach starts spotting trends, weak points, and progressive-overload targets here." });
-    return out;
+    return [{ id: "welcome", icon: Sparkles, tone: "accent", title: "Log your first session", body: "Once you train a few times, your coach starts spotting trends, weak points, and progressive-overload targets here." }];
   }
 
-  // 1 — progressive overload on the next workout's primary lift. Advise on the lift
+  const out = [];
+  const timeline = liftTimeline(sessions);
+  const stall = stallTip(timeline);
+
+  // 1 — returning after a gap. Leads, because nothing else matters until there's a
+  // session on the board again.
+  const layoff = layoffTip(sessions);
+  if (layoff) out.push(layoff);
+
+  // 2 — progressive overload on the next workout's primary lift. Advise on the lift
   // actually performed in that slot (the user may always swap in a substitute), and
   // label it with the name attached to the very record the number came from. If there
   // is no logged history for it, say nothing rather than invent a starting point.
+  // Suppressed when that same lift has stalled — "add 5 lb" directly contradicts the
+  // plateau advice below, and the plateau is the more specific read.
   if (nextDay && nextDay.exercises[0]) {
     const main = nextDay.exercises[0];
-    const last = topSetForLift(sessions, lastLiftForSlot(sessions, main.id) || main.best);
-    if (last) {
+    const liftName = lastLiftForSlot(sessions, main.id) || main.best;
+    const last = topSetForLift(sessions, liftName);
+    const stalledHere = stall && liftName && stall.key === normalizeLiftName(liftName);
+    if (last && !stalledHere) {
       out.push({
         id: "overload", icon: Target, tone: "accent",
         title: `${last.lift}: aim for ${last.top + 5} lb`,
@@ -108,18 +382,27 @@ export function generateInsights(sessions, allDaysById, nextDay) {
     }
   }
 
-  // 2 — weak point: least-trained muscle in last 30 days
+  // 3 — a record set in the last fortnight.
+  const pr = recordTip(timeline);
+  if (pr) out.push(pr);
+
+  // 4 — a lift that has stopped moving.
+  if (stall) out.push(stall.tip);
+
+  // 5 — a muscle that has gone cold. Takes precedence over the relative "lagging"
+  // reading below for the same muscle: a date is more actionable than a ratio.
+  const cold = coldMuscleTip(sessions);
+  if (cold) out.push(cold);
+
+  // 6 — weak point: least-trained muscle in the last 30 days, relative to the most.
   const recent = sessions.filter((s) => withinDays(s.date, 30));
   if (recent.length >= 2) {
-    const setsByMuscle = {};
-    for (const s of recent) for (const e of s.exercises) {
-      const mus = muscleForLift(e.selectedLift);
-      setsByMuscle[mus] = (setsByMuscle[mus] || 0) + e.sets.length;
-    }
-    const major = ["Chest", "Back", "Shoulders", "Quads", "Hamstrings"].map((m) => [m, setsByMuscle[m] || 0]);
+    const setsByMuscle = muscleStats(recent, 30).sets;
+    const major = ["Chest", "Back", "Shoulders", "Legs"].map((m) => [m, setsByMuscle[m] || 0]);
     major.sort((a, b) => a[1] - b[1]);
     const trained = major.filter((x) => x[1] > 0);
-    if (trained.length && major[0][1] < (major[major.length - 1][1] || 1) * 0.55) {
+    const alreadyNamed = cold && cold.title.startsWith(major[0][0]);
+    if (trained.length && !alreadyNamed && major[0][1] < (major[major.length - 1][1] || 1) * 0.55) {
       out.push({
         id: "weak", icon: Zap, tone: "warn",
         title: `${major[0][0]} is lagging`,
@@ -128,7 +411,19 @@ export function generateInsights(sessions, allDaysById, nextDay) {
     }
   }
 
-  // 3 — consistency this week vs last
+  // 7 — push/pull split.
+  const balance = balanceTip(sessions);
+  if (balance) out.push(balance);
+
+  // 8 — tonnage trend.
+  const volume = volumeTip(sessions);
+  if (volume) out.push(volume);
+
+  // 9 — conditioning, for people who already log it.
+  const cardio = cardioTip(sessions);
+  if (cardio) out.push(cardio);
+
+  // 10 — consistency this week vs last
   const nowW = startOfWeek(new Date()).getTime();
   const lastW = nowW - 7 * 86400000;
   const thisWk = sessions.filter((s) => new Date(s.date).getTime() >= nowW).length;
@@ -141,12 +436,14 @@ export function generateInsights(sessions, allDaysById, nextDay) {
     }
   }
 
-  // 4 — recovery / density
+  // 11 — recovery / density
   const last3 = sessions.filter((s) => withinDays(s.date, 3)).length;
   if (last3 >= 3) out.push({ id: "recovery", icon: Heart, tone: "warn", title: "Training density is high", body: `${last3} sessions in 3 days. Make sure sleep and protein are dialed in — recovery is where the growth happens.` });
   else if (recent.length >= 3) out.push({ id: "recovery", icon: Heart, tone: "good", title: "Recovery looks balanced", body: "Your session spacing over the last month gives muscles time to adapt. Good rhythm." });
 
-  return out;
+  // Ordered most-actionable first, so the two the home screen shows are the two worth
+  // acting on. Capped so the Coach screen reads as advice rather than a report.
+  return out.slice(0, 8);
 }
 
 
@@ -160,4 +457,3 @@ export function computeStreak(sessions) {
   while (dayKeys.has(cur.getTime())) { streak++; cur.setDate(cur.getDate() - 1); }
   return streak;
 }
-

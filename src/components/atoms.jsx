@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { Check, Cloud, CloudOff, Copy, RefreshCw, Sparkles, Trash2, X } from "lucide-react";
+import { Check, Cloud, CloudOff, Copy, RefreshCw, Sparkles, Star, Trash2, X } from "lucide-react";
 import { ACCENT, C, CARD_SHADOW } from "../lib/constants";
 
 export function Logo({ size = 32 }) {
@@ -195,3 +195,20 @@ export function SyncBadge({ status }) {
 /* AUTH SCREEN                                                             */
 /* ====================================================================== */
 
+
+/* Star toggle used by every exercise list, so the control reads and behaves the same
+   whether you are browsing the Library or picking something to add to a day. It is its
+   own button rather than part of the row, because tapping the row picks the exercise. */
+export function FavoriteStar({ on, onToggle, name }) {
+  return (
+    <button
+      onClick={(e) => { e.stopPropagation(); onToggle(); }}
+      aria-label={on ? `Unstar ${name}` : `Star ${name}`}
+      aria-pressed={on}
+      className="w-9 h-9 rounded-full flex items-center justify-center shrink-0">
+      <Star size={17} strokeWidth={on ? 2 : 1.8}
+        style={{ color: on ? C.push : C.ink4 }}
+        fill={on ? C.push : "none"} />
+    </button>
+  );
+}

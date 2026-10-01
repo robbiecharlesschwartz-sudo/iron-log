@@ -68,6 +68,7 @@ export const INSTALL_DISMISS_KEY = "iron-log-install-dismissed";
 export const LANDMARKS_KEY = "iron-log-landmarks-v1";
 export const SIDE_DAYS_KEY = "iron-log-side-days-v1";
 export const DISMISSED_KEY = "iron-log-dismissed-insights-v1";
+export const FAVORITES_KEY = "iron-log-favorite-exercises-v1"; // starred exercises, by name
 
 // ── Rest-timer notification helpers ──────────────────────────────────────
 
