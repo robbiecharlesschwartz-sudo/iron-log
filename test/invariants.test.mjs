@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import { EXERCISE_LIBRARY } from "../src/lib/exerciseLibrary.js";
 import { muscleForLift, normalizeLiftName } from "../src/lib/muscleMapping.js";
 import { lastPerformanceFor } from "../src/lib/sessionUtils.js";
-import { topSetForLift, lastLiftForSlot, generateInsights } from "../src/lib/insights.js";
+import { topSetForLift, lastLiftForSlot, generateInsights, visibleInsights, spendInsightBudget, localDayKey, TIPS_PER_DAY } from "../src/lib/insights.js";
 import { heatmapStatus, regionContributionsFor, HEATMAP_REGIONS } from "../src/lib/heatmapData.js";
 import { DEFAULT_LANDMARKS, MUSCLE_GROUPS, REGION_TO_MUSCLE, resolveLandmarks } from "../src/lib/landmarks.js";
 import { buildBackup, parseBackup, mergeBackup } from "../src/lib/backup.js";
@@ -382,4 +382,58 @@ test("the Legs volume bar's landmarks are the sum of its four muscle groups", ()
   assert.equal(bumped.Legs[0], lm.Legs[0] - lm.Quads[0] + 100);
   // Legs is derived, so it must never appear as its own editable muscle group.
   assert.ok(!MUSCLE_GROUPS.includes("Legs"));
+});
+
+/* ── the coach drips, it doesn't dump ──────────────────────────────────────── */
+
+const tips = (n) => Array.from({ length: n }, (_, i) => ({ id: "t" + i, title: "Tip " + i }));
+const key = (t) => `${t.id}::${t.title}`;
+
+test("at most five tips surface at once, however many are true", () => {
+  const { visible, queued } = visibleInsights(tips(11), [], null, "2026-09-30");
+  assert.equal(visible.length, TIPS_PER_DAY);
+  assert.equal(queued, 6, "the rest are queued, not discarded");
+  assert.deepEqual(visible.map((t) => t.id), ["t0", "t1", "t2", "t3", "t4"], "highest priority first");
+});
+
+test("dismissing a tip does not pull the next one up until tomorrow", () => {
+  const all = tips(11);
+  const today = "2026-09-30";
+  const budget = spendInsightBudget(spendInsightBudget(null, today), today);
+  assert.deepEqual(budget, { day: today, count: 2 });
+
+  const sameDay = visibleInsights(all, [key(all[0]), key(all[1])], budget, today);
+  assert.equal(sameDay.visible.length, 3, "two dismissed from five leaves three, with no backfill");
+  assert.deepEqual(sameDay.visible.map((t) => t.id), ["t2", "t3", "t4"]);
+
+  const tomorrow = visibleInsights(all, [key(all[0]), key(all[1])], budget, "2026-10-01");
+  assert.equal(tomorrow.visible.length, TIPS_PER_DAY, "the queue advances on a new day");
+  assert.deepEqual(tomorrow.visible.map((t) => t.id), ["t2", "t3", "t4", "t5", "t6"]);
+});
+
+test("clearing the whole board leaves nothing until tomorrow, and says how much is waiting", () => {
+  const all = tips(8);
+  const today = "2026-09-30";
+  let budget = null;
+  for (let i = 0; i < 5; i++) budget = spendInsightBudget(budget, today);
+  const dismissed = all.slice(0, 5).map(key);
+  const now = visibleInsights(all, dismissed, budget, today);
+  assert.equal(now.visible.length, 0);
+  assert.equal(now.queued, 3, "the three still true are what the empty state promises for tomorrow");
+  assert.equal(visibleInsights(all, dismissed, budget, "2026-10-01").visible.length, 3);
+});
+
+test("a budget left over from another day is ignored, not carried forward", () => {
+  const stale = { day: "2026-09-01", count: 5 };
+  assert.equal(visibleInsights(tips(11), [], stale, "2026-09-30").visible.length, TIPS_PER_DAY);
+  assert.deepEqual(spendInsightBudget(stale, "2026-09-30"), { day: "2026-09-30", count: 1 });
+});
+
+test("the coach's day rolls over at local midnight, not UTC", () => {
+  // 23:30 on the 30th, local time. A UTC-based key would call this the 1st for anyone
+  // east of Greenwich and the 30th for anyone west — the tip queue would advance at the
+  // wrong hour, in opposite directions, depending on where you are.
+  const late = new Date(2026, 8, 30, 23, 30);
+  assert.equal(localDayKey(late), "2026-09-30");
+  assert.equal(localDayKey(new Date(2026, 0, 5)), "2026-01-05", "month and day are zero-padded");
 });

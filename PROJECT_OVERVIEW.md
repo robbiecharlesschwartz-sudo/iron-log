@@ -361,6 +361,13 @@ Each of these was a real, user-reported defect. They are listed with the failure
    starting number — and a plateau on a lift suppresses the "add 5 lb" tip for that same lift,
    because the two contradict each other.
 
+   `generateInsights` returns everything that is true; `visibleInsights` decides how much of
+   it surfaces. **Five at a time, and a dismissal does not backfill until the next local day**
+   — `INSIGHT_BUDGET_KEY` holds `{day, count}` of slots today's dismissals have spent, and a
+   budget from any other day is ignored rather than carried forward. Use `localDayKey`, not
+   `toISOString().slice(0,10)`: the latter is UTC, so the queue would advance in the early
+   evening for anyone west of Greenwich.
+
 8. **Starting a day rebuilds its session from the template.**
    So it destroys a workout in progress. Day Preview hides Start and offers Resume for the live
    day, and confirms before abandoning a different day's session.

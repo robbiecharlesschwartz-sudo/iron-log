@@ -69,6 +69,11 @@ export const LANDMARKS_KEY = "iron-log-landmarks-v1";
 export const SIDE_DAYS_KEY = "iron-log-side-days-v1";
 export const DISMISSED_KEY = "iron-log-dismissed-insights-v1";
 export const FAVORITES_KEY = "iron-log-favorite-exercises-v1"; // starred exercises, by name
+// How many coach tips today's dismissals have already spent. Deliberately NOT synced to
+// the cloud: the dismissals themselves are (losing one would resurrect buried advice),
+// but this only decides WHEN the next tip surfaces, and a device being a few hours out
+// of step on that is invisible.
+export const INSIGHT_BUDGET_KEY = "iron-log-insight-budget-v1";
 
 // ── Rest-timer notification helpers ──────────────────────────────────────
 

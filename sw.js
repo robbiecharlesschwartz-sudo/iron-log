@@ -1,4 +1,4 @@
-const CACHE = "iron-log-25190b7fa8";
+const CACHE = "iron-log-87bb9e4168";
 const SHELL = ["./","./index.html","./app.js","./app.css","./manifest.json","./favicon.ico","./icon-180.png","./icon-192.png","./icon-512.png","./icon-512-maskable.png"];
 
 self.addEventListener("install", (event) => {

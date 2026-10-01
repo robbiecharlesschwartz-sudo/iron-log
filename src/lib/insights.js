@@ -442,8 +442,44 @@ export function generateInsights(sessions, allDaysById, nextDay) {
   else if (recent.length >= 3) out.push({ id: "recovery", icon: Heart, tone: "good", title: "Recovery looks balanced", body: "Your session spacing over the last month gives muscles time to adapt. Good rhythm." });
 
   // Ordered most-actionable first, so the two the home screen shows are the two worth
-  // acting on. Capped so the Coach screen reads as advice rather than a report.
-  return out.slice(0, 8);
+  // acting on. Everything true is returned; how much of it surfaces today is
+  // visibleInsights' job below.
+  return out;
+}
+
+
+/* ====================================================================== */
+/* WHAT SURFACES TODAY                                                    */
+/* ====================================================================== */
+
+export const TIPS_PER_DAY = 5;
+
+// Local calendar date. Not toISOString().slice(0,10) — that is UTC, so for anyone west
+// of Greenwich the coach's "day" would roll over in the early evening.
+export function localDayKey(d = new Date()) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+// Five at a time, and dismissing one does NOT pull the next one up behind it. The queue
+// advances once a day, so clearing the board is a decision that holds until tomorrow
+// rather than an endless scroll of advice — and what is left has a chance to be acted on
+// before more arrives. `queued` is how many true observations are waiting their turn.
+export function visibleInsights(allTips, dismissed, budget, today = localDayKey()) {
+  const gone = new Set(dismissed || []);
+  // Keyed on id AND headline: several ids ("consist", "recovery", "volume") are reused for
+  // opposite messages, so clearing "This week is behind your pace" must not also bury next
+  // week's good news.
+  const live = (allTips || []).filter((t) => !gone.has(`${t.id}::${t.title}`));
+  const spent = budget && budget.day === today ? Math.max(0, Number(budget.count) || 0) : 0;
+  const visible = live.slice(0, Math.max(0, TIPS_PER_DAY - spent));
+  return { visible, queued: live.length - visible.length };
+}
+
+// One dismissal spends one of today's slots. A budget left over from a previous day is
+// stale, so it starts the count again rather than carrying forward.
+export function spendInsightBudget(budget, today = localDayKey()) {
+  const count = (budget && budget.day === today ? Number(budget.count) || 0 : 0) + 1;
+  return { day: today, count };
 }
 
 

@@ -1,10 +1,10 @@
-import { ArrowLeft, ArrowUpRight, Sparkles, User } from "lucide-react";
+import { ArrowLeft, ArrowUpRight, Clock, Sparkles, User } from "lucide-react";
 import { InsightCard } from "./atoms";
 import { C } from "../lib/constants";
 import { estDurationMin } from "../lib/insights";
 import { dayAccentColor } from "../lib/sessionUtils";
 
-export function CoachScreen({ insights, onDismissInsight, nextDay, onBack, onStartNext, profileName }) {
+export function CoachScreen({ insights, queued = 0, onDismissInsight, nextDay, onBack, onStartNext, profileName }) {
   const accent = nextDay ? dayAccentColor(nextDay) : C.accent;
   return (
     <div className="px-5 pt-5 pb-32">
@@ -28,11 +28,26 @@ export function CoachScreen({ insights, onDismissInsight, nextDay, onBack, onSta
 
       {insights.length === 0 ? (
         <div className="rounded-2xl p-6 text-center" style={{ backgroundColor: C.surface }}>
-          <div className="text-[13px] font-semibold mb-1" style={{ color: C.ink2 }}>No tips right now</div>
-          <div className="text-[12px]" style={{ color: C.ink3 }}>You've cleared everything your coach had to say. New observations show up as you keep logging.</div>
+          <div className="text-[13px] font-semibold mb-1" style={{ color: C.ink2 }}>That's today's lot</div>
+          <div className="text-[12px]" style={{ color: C.ink3 }}>
+            {queued > 0
+              ? `You've cleared the board. ${queued} more observation${queued === 1 ? "" : "s"} waiting — ${queued === 1 ? "it arrives" : "they arrive"} tomorrow.`
+              : "You've cleared everything your coach had to say. New observations show up as you keep logging."}
+          </div>
         </div>
       ) : (
         <div className="flex flex-col gap-2.5">{insights.map((ins) => <InsightCard key={ins.id} insight={ins} onDismiss={onDismissInsight ? () => onDismissInsight(ins) : undefined} />)}</div>
+      )}
+
+      {/* The queue is deliberately drip-fed rather than dumped, so say so — otherwise a
+          dismissed tip looks like it took its replacement with it. */}
+      {insights.length > 0 && queued > 0 && (
+        <div className="rounded-2xl p-3.5 mt-2.5 flex items-center gap-2.5" style={{ backgroundColor: C.surface }}>
+          <Clock size={15} style={{ color: C.ink3 }} />
+          <div className="text-[12.5px]" style={{ color: C.ink3 }}>
+            {queued} more {queued === 1 ? "observation" : "observations"} queued. Your coach adds to this a few at a time, not all at once.
+          </div>
+        </div>
       )}
 
       <div className="rounded-2xl p-4 mt-4 text-center" style={{ backgroundColor: C.surface }}>
