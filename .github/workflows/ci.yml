@@ -1,0 +1,39 @@
+name: CI
+
+# app.js, app.css and the stamped sw.js are committed build artifacts, because both hosts
+# publish the repo root with no build step of their own. That makes "edited src/, forgot to
+# rebuild" a silent way to ship dead code. This job rebuilds from scratch and fails if the
+# committed output differs, so the mistake is caught here instead of in production.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Invariant tests
+        run: npm test
+
+      - name: Rebuild
+        run: npm run build
+
+      - name: Committed build artifacts must match a fresh build
+        run: |
+          if ! git diff --quiet -- app.js app.css sw.js; then
+            echo "::error::Committed build output is stale. Run 'npm run build' and commit app.js, app.css and sw.js."
+            git diff --stat -- app.js app.css sw.js
+            exit 1
+          fi
+          echo "Build artifacts are current."
