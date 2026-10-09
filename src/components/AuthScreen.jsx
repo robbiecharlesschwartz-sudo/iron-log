@@ -3,11 +3,14 @@ import { LogIn, Shield } from "lucide-react";
 import { Logo } from "./atoms";
 import { C } from "../lib/constants";
 
-export function AuthScreen({ auth, onGuest }) {
+export function AuthScreen({ auth, onGuest, intent = null }) {
+  // `intent` is the landing page saying which button was pressed. It only chooses
+  // which copy the email form opens on — Google is offered either way, and the
+  // options screen is still what a first run sees.
   const [mode, setMode] = useState("options"); // options | email
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [isCreate, setIsCreate] = useState(false);
+  const [isCreate, setIsCreate] = useState(intent === "signup");
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
   const inp = { backgroundColor: C.surface, color: C.ink, borderRadius: 12, padding: "10px 14px", fontSize: 15, outline: "none", width: "100%", border: `1px solid ${C.border}` };

@@ -1,4 +1,4 @@
-const CACHE = "iron-log-87bb9e4168";
+const CACHE = "iron-log-0848cfdba6";
 const SHELL = ["./","./index.html","./app.js","./app.css","./manifest.json","./favicon.ico","./icon-180.png","./icon-192.png","./icon-512.png","./icon-512-maskable.png"];
 
 self.addEventListener("install", (event) => {
@@ -31,7 +31,12 @@ self.addEventListener("fetch", (event) => {
           }
           return response;
         })
-        .catch(() => caches.match(event.request))
+        // Offline. Every route renders from the same shell, so a navigation to a path
+        // that was never cached — /app, /privacy, anything the client router owns —
+        // falls back to index.html rather than failing. Without this, moving the app
+        // off "/" took the whole thing offline: caches.match("/app") is a miss, and
+        // responding with undefined is a network error.
+        .catch(() => caches.match(event.request).then((hit) => hit || caches.match("./index.html")))
     );
     return;
   }

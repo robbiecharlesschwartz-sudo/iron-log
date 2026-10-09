@@ -24,7 +24,7 @@ import { buildActiveSession, committedAccum, isCardioExercise, migrateSession, p
 import { makeId } from "./lib/id";
 import { downloadBackup, mergeBackup, parseBackup } from "./lib/backup";
 
-export default function IronLog() {
+export default function IronLog({ authIntent = null, onAuthIntentUsed, onSignedOut }) {
   const auth = useAuth();
   const [screen, setScreen] = useState("home");
   const [sessions, setSessions] = useState([]);
@@ -44,6 +44,13 @@ export default function IronLog() {
   const [lastFinished, setLastFinished] = useState(null);
   const [ready, setReady] = useState(false);
   const [showAuth, setShowAuth] = useState(false);
+  /**
+   * The landing page's Log in / Sign up buttons, which have to open the auth screen
+   * even for someone who answered the account question long ago — showAuth is only
+   * ever set on a first run, which is right for onboarding and wrong for a button
+   * marked "Log in".
+   */
+  const [forcedAuth, setForcedAuth] = useState(!!authIntent);
   const [showOnboard, setShowOnboard] = useState(false);
   const [showNameEntry, setShowNameEntry] = useState(false);
   const [syncStatus, setSyncStatus] = useState("offline");
@@ -746,10 +753,19 @@ export default function IronLog() {
     </div>
   );
 
-  if (showAuth && FB_ENABLED && !auth.user) return (
+  if ((showAuth || forcedAuth) && FB_ENABLED && !auth.user) return (
     <div style={{ fontFamily: FONT, backgroundColor: C.surface }}>
       <div className="max-w-md mx-auto" style={{ backgroundColor: C.bg }}>
-        <AuthScreen auth={auth} onGuest={() => { setShowAuth(false); window.storage.set(ONBOARD_KEY, "guest").catch(() => {}); }} />
+        <AuthScreen
+          auth={auth}
+          intent={authIntent}
+          onGuest={() => {
+            setShowAuth(false);
+            setForcedAuth(false);
+            onAuthIntentUsed?.();
+            window.storage.set(ONBOARD_KEY, "guest").catch(() => {});
+          }}
+        />
       </div>
     </div>
   );
@@ -785,7 +801,7 @@ export default function IronLog() {
         {screen === "progress" && <ProgressScreen sessions={sessions} bodyWeight={profile.bodyWeight} landmarkOverrides={landmarkOverrides} />}
         {screen === "history" && <HistoryScreen sessions={sessions} onDeleteSessions={handleDeleteSessions} onContinue={handleContinueWorkout} onMerge={handleMergeSessions} onEdit={(s) => { setEditingSession(s); setScreen("editsession"); }} />}
         {screen === "editsession" && editingSession && <EditSessionScreen session={editingSession} onSave={handleSaveEditedSession} onBack={() => { setEditingSession(null); setScreen("history"); }} onDelete={(id) => { handleDeleteSessions([id]); setEditingSession(null); setScreen("history"); }} />}
-        {screen === "profile" && <ProfileScreen sessions={sessions} customDays={customDays} dayAdds={dayAdds} user={auth.user} auth={auth} syncStatus={syncStatus} syncError={syncError} lastSyncedAt={lastSyncedAt} onForceSync={handleForceSync} profileName={profileName} firstName={profile.firstName} lastName={profile.lastName} onUpdateName={handleUpdateName} bodyWeight={profile.bodyWeight} onUpdateBodyWeight={handleUpdateBodyWeight} landmarkOverrides={landmarkOverrides} onUpdateLandmarks={handleUpdateLandmarks} onBackup={handleBackup} onRestore={handleRestore} />}
+        {screen === "profile" && <ProfileScreen sessions={sessions} customDays={customDays} dayAdds={dayAdds} user={auth.user} auth={auth} syncStatus={syncStatus} syncError={syncError} lastSyncedAt={lastSyncedAt} onForceSync={handleForceSync} profileName={profileName} firstName={profile.firstName} lastName={profile.lastName} onUpdateName={handleUpdateName} bodyWeight={profile.bodyWeight} onUpdateBodyWeight={handleUpdateBodyWeight} landmarkOverrides={landmarkOverrides} onUpdateLandmarks={handleUpdateLandmarks} onBackup={handleBackup} onRestore={handleRestore} onSignedOut={onSignedOut} />}
         {screen === "coach" && <CoachScreen insights={insights} queued={queuedInsights} onDismissInsight={handleDismissInsight} nextDay={nextDay} onBack={() => setScreen("home")} onStartNext={handleSelectDay} profileName={profileName} />}
         {screen === "workout" && active && <WorkoutScreen active={active} setActive={setActive} sessions={sessions} persistActive={persistActive} onFinish={handleFinish} onExit={() => setScreen("home")} onAddExercise={handleAddExerciseFromWorkout} onDiscard={handleDiscardActive} />}
         {screen === "newday" && <NewDayScreen onSave={handleSaveNewDay} onSaveSide={handleSaveSideDay} onCancel={() => setScreen("home")} customExercises={customExercises} onNewCustomExercise={handleNewCustomExercise} sideDays={sideDays} onStartSideDay={handleStartSideDay} onDeleteSideDay={handleDeleteSideDay} />}

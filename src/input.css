@@ -1,3 +1,73 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* ------------------------------------------------------------ the public page
+ *
+ * The app is light, and the colours it uses live in a JS object (lib/constants.js)
+ * applied as inline styles — there is no Tailwind palette to extend. So the landing
+ * page gets its own variables here, scoped to `.lp`, which keeps them from leaking
+ * into a screen inside the app and lets the public page answer to the reader's system
+ * theme while the app stays light.
+ *
+ * Light is the default and dark is the override, matching the product.
+ */
+.lp {
+  --lp-bg: #FFFFFF;
+  --lp-raise: #F6F7F9;
+  --lp-line: #ECEDF1;
+  --lp-text: #16171C;
+  --lp-dim: #5C6069;
+  --lp-accent: #4F46E5;
+  --lp-on-accent: #FFFFFF;
+  --lp-accent-soft: #EEEEFC;
+  --lp-good: #15A150;
+  color-scheme: light;
+  background: var(--lp-bg);
+  color: var(--lp-text);
+}
+
+@media (prefers-color-scheme: dark) {
+  .lp {
+    --lp-bg: #0D0E12;
+    --lp-raise: #16181F;
+    --lp-line: #242730;
+    --lp-text: #ECEDF1;
+    --lp-dim: #9A9EA8;
+    /* Lightened from the app's #4F46E5, which is too dark to read on a dark ground.
+       The filled button keeps enough contrast either way. */
+    --lp-accent: #8B85F0;
+    --lp-on-accent: #0D0E12;
+    --lp-accent-soft: #1E1C3A;
+    --lp-good: #4ADE80;
+    color-scheme: dark;
+  }
+}
+
+.lp-root { min-height: 100%; }
+
+@layer components {
+  .lp-wrap { @apply mx-auto w-full max-w-[1120px] px-5 sm:px-6; }
+  .lp-card {
+    background: var(--lp-raise);
+    border: 1px solid var(--lp-line);
+    @apply rounded-2xl;
+  }
+  .lp-btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-2xl px-5 py-3 text-[15px] font-semibold transition-colors;
+    @apply disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  .lp-btn-primary { background: var(--lp-accent); color: var(--lp-on-accent); }
+  .lp-btn-primary:hover:not(:disabled) { filter: brightness(1.08); }
+  .lp-btn-ghost { background: transparent; color: var(--lp-text); border: 1px solid var(--lp-line); }
+  .lp-btn-ghost:hover:not(:disabled) { background: var(--lp-raise); }
+  .lp-h2 { @apply text-[26px] sm:text-[32px] font-semibold tracking-[-0.02em]; }
+  .lp-sub { @apply text-[15px] leading-7; color: var(--lp-dim); }
+}
+
+/* Focus is restyled, never removed — the page has to work from a keyboard. */
+.lp :focus-visible { outline: 2px solid var(--lp-accent); outline-offset: 2px; border-radius: 10px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .lp * { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+}

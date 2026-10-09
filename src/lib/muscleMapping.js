@@ -86,6 +86,12 @@ const RAW_SYNONYMS = {
   "barbell back squat": "back squat", "barbell squat": "back squat",
   "incline db press": "incline dumbbell press",
   "bb row": "barbell row",
+  // The machine is simply how these are done, so a set typed as "Hip Abduction" is the
+  // same lift as one picked from the library as "Hip Abduction Machine" — splitting them
+  // splits the history and the personal best. Safe under the rule below because the bare
+  // names are not themselves library exercises, so nothing distinct is being merged.
+  "hip abduction": "hip abduction machine",
+  "hip adduction": "hip adduction machine",
 };
 
 // Equal once punctuation, spacing and a trailing plural are ignored — i.e. the same

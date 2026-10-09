@@ -1,0 +1,6 @@
+# Netlify's SPA fallback. There is no server: every path is served index.html and
+# src/lib/route.js decides what to render from location.pathname.
+#
+# Without this, /app and /privacy are 404s on a hard refresh or a shared link —
+# they only exist as client-side routes.
+/*  /index.html  200

@@ -9,6 +9,7 @@ import { heatmapStatus, regionContributionsFor, HEATMAP_REGIONS } from "../src/l
 import { DEFAULT_LANDMARKS, MUSCLE_GROUPS, REGION_TO_MUSCLE, resolveLandmarks } from "../src/lib/landmarks.js";
 import { buildBackup, parseBackup, mergeBackup } from "../src/lib/backup.js";
 import { isFavorite, toggleFavorite } from "../src/lib/favorites.js";
+import { rangeLabel, sessionsInRange } from "../src/lib/excelExport.js";
 
 /* Every test here corresponds to an invariant in PROJECT_OVERVIEW.md §8, and every
    invariant there was a real bug that shipped and got reported. The point of the file is
@@ -436,4 +437,76 @@ test("the coach's day rolls over at local midnight, not UTC", () => {
   const late = new Date(2026, 8, 30, 23, 30);
   assert.equal(localDayKey(late), "2026-09-30");
   assert.equal(localDayKey(new Date(2026, 0, 5)), "2026-01-05", "month and day are zero-padded");
+});
+
+/* ── Excel export ranges ────────────────────────────────────────────────────
+   The export was a fixed last-30-days. Now that it takes a window, the window the
+   picker counts and the window the file contains have to be the same one — and a
+   custom range has to mean the days the person tapped in their own calendar, not
+   whatever those dates are in UTC. */
+
+test("each named range reaches back exactly as far as it says", () => {
+  const history = [2, 60, 120, 200, 340, 400].map((d) =>
+    session(daysAgo(d), [ex("a", "Back Squat", [set(225, 5, "Back Squat")])]));
+  const count = (id) => sessionsInRange(history, { id }).length;
+  assert.equal(count("30d"), 1, "only the 2-day-old session is inside 30 days");
+  assert.equal(count("3m"), 2);
+  assert.equal(count("6m"), 3, "182 days — the 200-day-old session is outside it");
+  assert.equal(count("1y"), 5, "the 400-day-old session is outside a year");
+  assert.equal(count("all"), 6, "all time has no lower bound");
+});
+
+test("sessions come back oldest first, however they were stored", () => {
+  const history = [session(daysAgo(2), []), session(daysAgo(40), []), session(daysAgo(10), [])];
+  const dates = sessionsInRange(history, { id: "all" }).map((s) => s.date);
+  assert.deepEqual(dates, [...dates].sort(), "a spreadsheet read top to bottom has to run forwards");
+});
+
+test("a custom range is read in the reader's own calendar, not UTC", () => {
+  // Late evening local time on the 9th. Date.parse("2026-10-09") is UTC midnight,
+  // which is still the 8th anywhere west of Greenwich — so a naive parse would put
+  // this session before the start of its own day and drop it from the export.
+  const evening = new Date(2026, 9, 9, 22, 30).toISOString();
+  const history = [session(evening, [ex("a", "Back Squat", [set(225, 5, "Back Squat")])])];
+  const picked = sessionsInRange(history, { id: "custom", from: "2026-10-09", to: "2026-10-09" });
+  assert.equal(picked.length, 1, "a single-day range must include that whole local day");
+});
+
+test("both ends of a custom range are inclusive", () => {
+  const history = [
+    session(new Date(2026, 9, 1, 9, 0).toISOString(), []),
+    session(new Date(2026, 9, 5, 9, 0).toISOString(), []),
+    session(new Date(2026, 9, 9, 9, 0).toISOString(), []),
+    session(new Date(2026, 9, 10, 9, 0).toISOString(), []),
+  ];
+  const picked = sessionsInRange(history, { id: "custom", from: "2026-10-01", to: "2026-10-09" });
+  assert.equal(picked.length, 3, "the 1st and the 9th are both in; the 10th is not");
+});
+
+test("the file name and the sheet headers name the range that was exported", () => {
+  assert.equal(rangeLabel({ id: "6m" }), "Last 6 months");
+  assert.equal(rangeLabel({ id: "all" }), "All time");
+  assert.match(rangeLabel({ id: "custom", from: "2026-10-01", to: "2026-10-09" }), / to /);
+  // An unrecognised id must not silently export something other than what it says.
+  assert.equal(rangeLabel(null), "Last 30 days");
+});
+
+test("the hip machine names merge, and the guard still refuses genuinely distinct lifts", () => {
+  const same = (a, b) => normalizeLiftName(a) === normalizeLiftName(b);
+  assert.ok(same("Hip Abduction", "Hip Abduction Machine"), "the machine is how the movement is done");
+  assert.ok(same("Hip Adduction", "Hip Adduction Machine"));
+  // The §8.3 guard: these are separate entries in the library and must stay apart.
+  assert.ok(!same("Lat Pulldown", "Wide-Grip Lat Pulldown"));
+  assert.ok(!same("Cable Fly", "Cable Crossover"));
+});
+
+test("a bodyweight set exports as 0, not as a blank cell", () => {
+  // Dips logged with no added load are stored as weight 0 and shown as 0 in the app.
+  // The spreadsheet used to blank them, so a real set read as an unrecorded one.
+  const history = [session(daysAgo(1), [ex("a", "Dips", [set(0, 12, "Dips"), set(25, 8, "Dips")])])];
+  const [s] = sessionsInRange(history, { id: "all" });
+  const weights = s.exercises[0].sets.map((st) => Number(st.weight) || 0);
+  assert.deepEqual(weights, [0, 25]);
+  assert.equal(weights[0] || "", "", "the old `weight || \"\"` is exactly what blanked it");
+  assert.equal(weights[0], 0, "and 0 is what the sheet must now carry");
 });

@@ -1,0 +1,7 @@
+# The app holds people's training history and every URL inside it is per-account;
+# there is nothing there for a crawler. Only the public page is worth indexing.
+User-agent: *
+Allow: /$
+Disallow: /app
+
+Sitemap: https://ironlogexercise.netlify.app/sitemap.xml

@@ -3,13 +3,13 @@ import { Activity, Award, Clock, Download, Flame, LogOut, RefreshCw, Search, Sli
 import { AuthInline } from "./AuthScreen";
 import { SyncBadge } from "./atoms";
 import { C, CARD_SHADOW, RETENTION_DAYS } from "../lib/constants";
-import { exportToExcel } from "../lib/excelExport";
+import { EXPORT_RANGES, endOfLocalDay, exportToExcel, sessionsInRange, startOfLocalDay } from "../lib/excelExport";
 import { FB_ENABLED } from "../lib/firebase";
 import { computeStreak, withinDays } from "../lib/insights";
 import { DEFAULT_LANDMARKS, MUSCLE_GROUPS, resolveLandmarks } from "../lib/landmarks";
 import { fmtClock } from "../lib/sessionUtils";
 
-export function ProfileScreen({ sessions, customDays, dayAdds, user, auth, syncStatus, syncError, lastSyncedAt, onForceSync, profileName, firstName, lastName, onUpdateName, bodyWeight, onUpdateBodyWeight, landmarkOverrides, onUpdateLandmarks, onBackup, onRestore }) {
+export function ProfileScreen({ sessions, customDays, dayAdds, user, auth, syncStatus, syncError, lastSyncedAt, onForceSync, profileName, firstName, lastName, onUpdateName, bodyWeight, onUpdateBodyWeight, landmarkOverrides, onUpdateLandmarks, onBackup, onRestore , onSignedOut}) {
   const [allTime, setAllTime] = useState(false);
   const fileRef = useRef(null);
   const scoped = useMemo(() => allTime ? sessions : sessions.filter((s) => withinDays(s.date, 30)), [sessions, allTime]);
@@ -62,6 +62,44 @@ export function ProfileScreen({ sessions, customDays, dayAdds, user, auth, syncS
   }
   function saveLandmarks() { onUpdateLandmarks?.(landmarkDraft); setEditingLandmarks(false); }
   function resetLandmarks() { setLandmarkDraft({ ...DEFAULT_LANDMARKS }); }
+
+  /* ── Excel export range ────────────────────────────────────────────────
+     The export used to be a fixed last-30-days with no say in it. The picker is a
+     sheet rather than a menu because the custom option needs two date fields and a
+     count, and because exporting the wrong window is only obvious after the file
+     has opened. */
+  const [exportOpen, setExportOpen] = useState(false);
+  const [exportRangeId, setExportRangeId] = useState("30d");
+  const todayYmd = useMemo(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  }, []);
+  const [customFrom, setCustomFrom] = useState("");
+  const [customTo, setCustomTo] = useState(todayYmd);
+  const [exporting, setExporting] = useState(false);
+
+  const exportRange = { id: exportRangeId, from: customFrom, to: customTo };
+  const customInvalid =
+    exportRangeId === "custom" &&
+    (!customFrom || !customTo || startOfLocalDay(customFrom) > endOfLocalDay(customTo));
+  // Counted from the same function the export itself uses, so the number on the
+  // button cannot disagree with what lands in the file.
+  const exportCount = useMemo(
+    () => (customInvalid ? 0 : sessionsInRange(sessions, exportRange).length),
+    [sessions, exportRangeId, customFrom, customTo, customInvalid],
+  );
+
+  async function runExport() {
+    setExporting(true);
+    try {
+      await exportToExcel(sessions, profileName, exportRange);
+      setExportOpen(false);
+    } catch {
+      alert("Export failed.");
+    } finally {
+      setExporting(false);
+    }
+  }
 
   return (
     <div className="px-5 pt-6 pb-32">
@@ -159,7 +197,7 @@ export function ProfileScreen({ sessions, customDays, dayAdds, user, auth, syncS
                   <RefreshCw size={15} style={{ color: C.ink3 }} /> Force Sync
                   <span className="ml-auto text-[11px]" style={{ color: C.ink4 }}>Re-upload pending</span>
                 </button>
-                <button onClick={() => auth.logout()} className="w-full p-3.5 flex items-center gap-2.5 text-[13px] font-semibold text-left" style={{ color: C.bad }}>
+                <button onClick={() => { auth.logout(); onSignedOut?.(); }} className="w-full p-3.5 flex items-center gap-2.5 text-[13px] font-semibold text-left" style={{ color: C.bad }}>
                   <LogOut size={15} /> Sign out
                 </button>
               </>
@@ -208,10 +246,10 @@ export function ProfileScreen({ sessions, customDays, dayAdds, user, auth, syncS
       <div className="mt-4">
         <div className="text-[11px] font-bold uppercase tracking-[0.14em] mb-2" style={{ color: C.ink3 }}>Export</div>
         <div className="rounded-2xl overflow-hidden" style={{ border: `1px solid ${C.border}` }}>
-          <button onClick={() => exportToExcel(sessions, profileName).catch(() => alert("Export failed."))}
+          <button onClick={() => setExportOpen(true)}
             className="w-full p-3.5 flex items-center gap-2.5 text-[13px] font-semibold text-left" style={{ color: C.ink }}>
             <Download size={15} style={{ color: C.good }} /> Export to Excel
-            <span className="ml-auto text-[11px]" style={{ color: C.ink4 }}>Last 30 days · .xlsx</span>
+            <span className="ml-auto text-[11px]" style={{ color: C.ink4 }}>Choose a range · .xlsx</span>
           </button>
           <button onClick={onBackup}
             className="w-full p-3.5 flex items-center gap-2.5 text-[13px] font-semibold text-left" style={{ color: C.ink, borderTop: `1px solid ${C.border}` }}>
@@ -232,6 +270,86 @@ export function ProfileScreen({ sessions, customDays, dayAdds, user, auth, syncS
           {user ? " Data is synced to your account." : ""}
         </div>
       </div>
+
+      {exportOpen && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center" style={{ backgroundColor: "rgba(0,0,0,0.4)" }} onClick={() => setExportOpen(false)}>
+          <div className="w-full max-w-md rounded-t-3xl p-5 pb-8 flex flex-col" style={{ backgroundColor: C.bg, maxHeight: "85vh" }} onClick={(e) => e.stopPropagation()}>
+            <div className="w-10 h-1 rounded-full mx-auto mb-4 shrink-0" style={{ backgroundColor: C.border2 }} />
+            <div className="flex items-center justify-between mb-1 shrink-0">
+              <h3 className="text-[18px] font-bold tracking-tight" style={{ color: C.ink }}>Export to Excel</h3>
+              <button onClick={() => setExportOpen(false)} className="p-1" aria-label="Close"><X size={18} style={{ color: C.ink4 }} /></button>
+            </div>
+            <p className="text-[12.5px] mb-4 shrink-0" style={{ color: C.ink3 }}>How much of your history should the spreadsheet cover?</p>
+
+            <div className="overflow-y-auto flex-1 -mx-1 px-1">
+              <div className="flex flex-col gap-2" role="radiogroup" aria-label="Export range">
+                {EXPORT_RANGES.map((option) => {
+                  const selected = exportRangeId === option.id;
+                  return (
+                    <button key={option.id} role="radio" aria-checked={selected}
+                      onClick={() => setExportRangeId(option.id)}
+                      className="w-full rounded-2xl px-4 py-3 flex items-center gap-3 text-left"
+                      style={{
+                        backgroundColor: selected ? C.accentSoft : C.surface,
+                        border: `1px solid ${selected ? C.accent : C.border}`,
+                      }}>
+                      <span className="w-4 h-4 rounded-full shrink-0 flex items-center justify-center"
+                        style={{ border: `2px solid ${selected ? C.accent : C.ink4}` }}>
+                        {selected && <span className="w-2 h-2 rounded-full" style={{ backgroundColor: C.accent }} />}
+                      </span>
+                      <span className="text-[14px] font-semibold" style={{ color: selected ? C.accentInk : C.ink }}>{option.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {exportRangeId === "custom" && (
+                <div className="mt-3 rounded-2xl p-4" style={{ backgroundColor: C.surface, border: `1px solid ${C.border}` }}>
+                  <div className="grid grid-cols-2 gap-3">
+                    <label className="flex flex-col gap-1.5">
+                      <span className="text-[11px] font-bold uppercase tracking-wide" style={{ color: C.ink3 }}>From</span>
+                      <input type="date" value={customFrom} max={customTo || todayYmd}
+                        onChange={(e) => setCustomFrom(e.target.value)}
+                        className="rounded-xl px-3 py-2.5 text-[14px] outline-none"
+                        style={{ backgroundColor: C.bg, color: C.ink, border: `1px solid ${C.border2}` }} />
+                    </label>
+                    <label className="flex flex-col gap-1.5">
+                      <span className="text-[11px] font-bold uppercase tracking-wide" style={{ color: C.ink3 }}>To</span>
+                      <input type="date" value={customTo} min={customFrom || undefined}
+                        onChange={(e) => setCustomTo(e.target.value)}
+                        className="rounded-xl px-3 py-2.5 text-[14px] outline-none"
+                        style={{ backgroundColor: C.bg, color: C.ink, border: `1px solid ${C.border2}` }} />
+                    </label>
+                  </div>
+                  <div className="text-[11px] mt-2" style={{ color: C.ink4 }}>Both days are included.</div>
+                </div>
+              )}
+
+              {/* Counted before the file is written, so an empty export is visible as a
+                  disabled button rather than a spreadsheet with nothing in it. */}
+              <div className="text-[12px] mt-3" style={{ color: customInvalid ? C.bad : C.ink3 }}>
+                {customInvalid
+                  ? "Pick a start date on or before the end date."
+                  : exportCount === 0
+                    ? "No sessions in that range."
+                    : `${exportCount} session${exportCount === 1 ? "" : "s"} · 3 sheets`}
+              </div>
+              <div className="text-[11px] mt-1.5" style={{ color: C.ink4 }}>
+                Sessions older than {RETENTION_DAYS} days aren't kept, so that's as far back as any export reaches.
+              </div>
+            </div>
+
+            <button onClick={runExport} disabled={exporting || customInvalid || exportCount === 0}
+              className="w-full rounded-2xl py-3.5 text-[14px] font-semibold mt-4 shrink-0 flex items-center justify-center gap-2"
+              style={{
+                backgroundColor: exporting || customInvalid || exportCount === 0 ? C.border : C.ink,
+                color: exporting || customInvalid || exportCount === 0 ? C.ink3 : "#fff",
+              }}>
+              <Download size={15} /> {exporting ? "Building…" : "Export"}
+            </button>
+          </div>
+        </div>
+      )}
 
       {editingLandmarks && landmarkDraft && (
         <div className="fixed inset-0 z-50 flex items-end justify-center" style={{ backgroundColor: "rgba(0,0,0,0.4)" }} onClick={() => setEditingLandmarks(false)}>

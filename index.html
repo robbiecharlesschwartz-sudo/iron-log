@@ -3,7 +3,23 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
-<title>Iron Log</title>
+<title>Iron Log — a workout tracker that tells you what to lift next</title>
+<meta name="description" content="Free strength training log. Plan your week, run the session with a rest timer that works with your phone locked, and see what to add weight to next — worked out from your own lifts, never guessed." />
+<link rel="canonical" href="https://ironlogexercise.netlify.app/" />
+
+<!-- Sharing. The app icon stands in for a purpose-made OG image deliberately: a
+     1200x630 PNG would be the largest file this site ships, fetched by every crawler
+     that touches the page, to show something nobody looks at twice. -->
+<meta property="og:type" content="website" />
+<meta property="og:site_name" content="Iron Log" />
+<meta property="og:url" content="https://ironlogexercise.netlify.app/" />
+<meta property="og:title" content="Iron Log — a workout tracker that tells you what to lift next" />
+<meta property="og:description" content="Free strength training log. Plan your week, run the session with a rest timer that works with your phone locked, and see what to add weight to next — worked out from your own lifts, never guessed." />
+<meta property="og:image" content="https://ironlogexercise.netlify.app/icon-512.png" />
+<meta name="twitter:card" content="summary" />
+<meta name="twitter:title" content="Iron Log — a workout tracker that tells you what to lift next" />
+<meta name="twitter:description" content="Free strength training log. Plan your week, run the session with a rest timer that works with your phone locked, and see what to add weight to next — worked out from your own lifts, never guessed." />
+<meta name="twitter:image" content="https://ironlogexercise.netlify.app/icon-512.png" />
 <link rel="manifest" href="manifest.json" />
 <meta name="theme-color" content="#2563EB" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -16,11 +32,28 @@
 <link rel="stylesheet" href="app.css" />
 <style>
   html,body{background:#FFFFFF;margin:0;touch-action:manipulation;}
+  /*
+   * The public page follows the reader's system theme; the app is light always.
+   * Painting white and letting React repaint it dark a moment later is a flash on
+   * every first visit in dark mode, so the route is read before anything renders
+   * (the script below sets the class) and the background is settled here.
+   */
+  @media (prefers-color-scheme: dark) {
+    html.at-root, html.at-root body { background:#0D0E12; }
+  }
   /* Belt-and-suspenders: user-scalable=no is ignored by some browsers (notably iOS Safari
      in certain versions), so also block pinch-zoom and double-tap-zoom at the CSS level. */
   * { touch-action: manipulation; }
   html { touch-action: pan-x pan-y; }
 </style>
+<script>
+  /* Runs in the head, before the first paint, so the rule above can settle the
+     background with no flash. The paths match src/lib/route.js. */
+  (function () {
+    var p = location.pathname.replace(/\/+$/, "") || "/";
+    if (/^\/(index\.html|privacy|terms|contact)?$/.test(p)) document.documentElement.className = "at-root";
+  })();
+</script>
 </head>
 <body>
 <div id="root"></div>
