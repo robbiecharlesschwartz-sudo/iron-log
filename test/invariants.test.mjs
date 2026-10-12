@@ -10,6 +10,7 @@ import { DEFAULT_LANDMARKS, MUSCLE_GROUPS, REGION_TO_MUSCLE, resolveLandmarks } 
 import { buildBackup, parseBackup, mergeBackup } from "../src/lib/backup.js";
 import { isFavorite, toggleFavorite } from "../src/lib/favorites.js";
 import { rangeLabel, sessionsInRange } from "../src/lib/excelExport.js";
+import { shouldEnterApp } from "../src/lib/route.js";
 
 /* Every test here corresponds to an invariant in PROJECT_OVERVIEW.md §8, and every
    invariant there was a real bug that shipped and got reported. The point of the file is
@@ -509,4 +510,28 @@ test("a bodyweight set exports as 0, not as a blank cell", () => {
   assert.deepEqual(weights, [0, 25]);
   assert.equal(weights[0] || "", "", "the old `weight || \"\"` is exactly what blanked it");
   assert.equal(weights[0], 0, "and 0 is what the sheet must now carry");
+});
+
+/* ── who sees the public page ───────────────────────────────────────────────
+   Opening your own training log should not mean reading a pitch for it first, and a
+   reader who has never been here should not be dropped straight into an empty app. */
+
+test("a returning reader goes straight to the app, a new one does not", () => {
+  const decide = (o) => shouldEnterApp({ route: "landing", authLoading: false, ...o });
+  assert.equal(decide({ signedIn: true, onboarded: false }), true, "signed in");
+  assert.equal(decide({ signedIn: false, onboarded: true }), true, "a guest who already chose");
+  assert.equal(decide({ signedIn: false, onboarded: false }), false, "never been here — show the page");
+});
+
+test("nothing is decided until auth and the onboarding check have both answered", () => {
+  // Deciding early is what flashes the landing page at someone who is signed in.
+  assert.equal(shouldEnterApp({ route: "landing", signedIn: true, onboarded: true, authLoading: true }), false);
+  assert.equal(shouldEnterApp({ route: "landing", signedIn: false, onboarded: null, authLoading: false }), false,
+    "null is 'still checking', not 'no'");
+});
+
+test("only the landing page redirects — the legal pages stay put", () => {
+  for (const route of ["app", "privacy", "terms", "contact"]) {
+    assert.equal(shouldEnterApp({ route, signedIn: true, onboarded: true, authLoading: false }), false, route);
+  }
 });

@@ -23,10 +23,17 @@ export function routeFor(pathname = window.location.pathname) {
   return PAGES[path] || "app";
 }
 
-/** Move without reloading. Same path is not a navigation. */
-export function go(path) {
+/**
+ * Move without reloading. Same path is not a navigation.
+ *
+ * `replace` swaps the current entry instead of adding one, which an automatic
+ * redirect must do: pushing "/" -> "/app" leaves "/" in history, and Back from the
+ * app lands on a page that immediately redirects forward again. The reader is then
+ * stuck, with no way out but closing the tab.
+ */
+export function go(path, { replace = false } = {}) {
   if (window.location.pathname === path) return;
-  window.history.pushState({}, "", path);
+  window.history[replace ? "replaceState" : "pushState"]({}, "", path);
   window.dispatchEvent(new PopStateEvent("popstate"));
 }
 
@@ -35,4 +42,26 @@ export function onRouteChange(handler) {
   const fire = () => handler(routeFor());
   window.addEventListener("popstate", fire);
   return () => window.removeEventListener("popstate", fire);
+}
+
+/**
+ * Should a visit to the public page go straight through to the app?
+ *
+ * Pulled out of the component so the rule can be tested, because it is the one piece
+ * of this that is easy to get subtly wrong and invisible when it is:
+ *
+ *   - `authLoading` has to block the decision. Firebase answers asynchronously, and
+ *     deciding before it does shows the landing page to a signed-in reader for a frame
+ *     and then yanks it away.
+ *   - `onboarded` is three-valued. `null` means the check has not finished, which is
+ *     not the same as `false`, and treating it as false flashes the page at every
+ *     returning reader.
+ *   - A guest counts as returning. Someone who chose to use the app without an account
+ *     has been here before; showing them a sign-up pitch on every launch is the bug
+ *     this rule exists to avoid.
+ */
+export function shouldEnterApp({ route, signedIn, onboarded, authLoading }) {
+  if (route !== "landing") return false;
+  if (authLoading || onboarded === null) return false; // not decided yet
+  return signedIn || onboarded === true;
 }
