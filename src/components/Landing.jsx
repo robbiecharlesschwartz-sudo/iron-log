@@ -15,25 +15,25 @@ import { APP_NAME, COACH, COMPARE, FAQ, FEATURES, FINAL, FOOTER, HERO, HOW, MOCK
 
 const ICONS = { dumbbell: Dumbbell, timer: Timer, target: Target, activity: Activity, cloud: CloudUpload, download: Download };
 
-export default function Landing({ signedIn, onSignUp, onLogIn, onOpenApp }) {
+export default function Landing({ onSignUp, onLogIn }) {
   return (
     <div className="lp lp-root">
-      <Nav signedIn={signedIn} onSignUp={onSignUp} onLogIn={onLogIn} onOpenApp={onOpenApp} />
+      <Nav onSignUp={onSignUp} onLogIn={onLogIn} />
       <main id="main">
-        <Hero signedIn={signedIn} onSignUp={onSignUp} onOpenApp={onOpenApp} />
+        <Hero onSignUp={onSignUp} />
         <HowItWorks />
         <Features />
         <CoachSection />
         <Comparison />
         <Faq />
-        <FinalCta signedIn={signedIn} onSignUp={onSignUp} onOpenApp={onOpenApp} />
+        <FinalCta onSignUp={onSignUp} />
       </main>
       <Footer />
     </div>
   );
 }
 
-function Nav({ signedIn, onSignUp, onLogIn, onOpenApp }) {
+function Nav({ onSignUp, onLogIn }) {
   const [open, setOpen] = useState(false);
 
   // A menu left open behind the section you jumped to is a menu you have to close
@@ -69,14 +69,8 @@ function Nav({ signedIn, onSignUp, onLogIn, onOpenApp }) {
         </nav>
 
         <div className="ml-auto hidden items-center gap-3 md:flex">
-          {signedIn ? (
-            <button className="lp-btn lp-btn-primary" onClick={onOpenApp}>{NAV.openApp}</button>
-          ) : (
-            <>
-              <button className="text-sm font-medium hover:underline" onClick={onLogIn}>{NAV.logIn}</button>
+          <button className="text-sm font-medium hover:underline" onClick={onLogIn}>{NAV.logIn}</button>
               <button className="lp-btn lp-btn-primary" onClick={onSignUp}>{NAV.signUp}</button>
-            </>
-          )}
         </div>
 
         <button
@@ -98,14 +92,8 @@ function Nav({ signedIn, onSignUp, onLogIn, onOpenApp }) {
               </a>
             ))}
             <div className="mt-2 flex flex-col gap-2">
-              {signedIn ? (
-                <button className="lp-btn lp-btn-primary" onClick={onOpenApp}>{NAV.openApp}</button>
-              ) : (
-                <>
-                  <button className="lp-btn lp-btn-ghost" onClick={onLogIn}>{NAV.logIn}</button>
+              <button className="lp-btn lp-btn-ghost" onClick={onLogIn}>{NAV.logIn}</button>
                   <button className="lp-btn lp-btn-primary" onClick={onSignUp}>{NAV.signUp}</button>
-                </>
-              )}
             </div>
           </div>
         </div>
@@ -114,18 +102,14 @@ function Nav({ signedIn, onSignUp, onLogIn, onOpenApp }) {
   );
 }
 
-function Hero({ signedIn, onSignUp, onOpenApp }) {
+function Hero({ onSignUp }) {
   return (
     <section className="lp-wrap grid items-center gap-12 py-14 sm:py-20 lg:grid-cols-[1.05fr_1fr] lg:gap-16">
       <div>
         <h1 className="text-[34px] font-semibold leading-[1.08] tracking-[-0.03em] sm:text-[46px]">{HERO.headline}</h1>
         <p className="lp-sub mt-5 max-w-[52ch] text-[16px]">{HERO.sub}</p>
         <div className="mt-8 flex flex-wrap gap-3">
-          {signedIn ? (
-            <button className="lp-btn lp-btn-primary" onClick={onOpenApp}>{NAV.openApp}</button>
-          ) : (
-            <button className="lp-btn lp-btn-primary" onClick={onSignUp}>{HERO.primary}</button>
-          )}
+          <button className="lp-btn lp-btn-primary" onClick={onSignUp}>{HERO.primary}</button>
           <a className="lp-btn lp-btn-ghost" href="#how">{HERO.secondary}</a>
         </div>
         <p className="mt-5 text-[13.5px]" style={{ color: "var(--lp-dim)" }}>{HERO.note}</p>
@@ -319,18 +303,14 @@ function Faq() {
   );
 }
 
-function FinalCta({ signedIn, onSignUp, onOpenApp }) {
+function FinalCta({ onSignUp }) {
   return (
     <section className="lp-wrap py-14 sm:py-20">
       <div className="lp-card px-6 py-10 text-center sm:px-10">
         <h2 className="lp-h2">{FINAL.title}</h2>
         <p className="lp-sub mx-auto mt-3 max-w-[52ch]">{FINAL.sub}</p>
         <div className="mt-7">
-          {signedIn ? (
-            <button className="lp-btn lp-btn-primary" onClick={onOpenApp}>{NAV.openApp}</button>
-          ) : (
-            <button className="lp-btn lp-btn-primary" onClick={onSignUp}>{FINAL.cta}</button>
-          )}
+          <button className="lp-btn lp-btn-primary" onClick={onSignUp}>{FINAL.cta}</button>
         </div>
       </div>
     </section>

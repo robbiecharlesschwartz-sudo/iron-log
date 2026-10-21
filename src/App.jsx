@@ -12,7 +12,7 @@ import { NameEntryScreen, OnboardingScreen } from "./components/Onboarding";
 import { ProfileScreen } from "./components/ProfileScreen";
 import { ProgressScreen } from "./components/ProgressScreen";
 import { SummaryScreen, WorkoutScreen } from "./components/WorkoutScreen";
-import { Logo } from "./components/atoms";
+import { Logo, Splash } from "./components/atoms";
 import { toggleFavorite } from "./lib/favorites";
 import { ACTIVE_KEY, ADDS_KEY, C, CUSTOM_EX_KEY, CUSTOM_KEY, DISMISSED_KEY, FAVORITES_KEY, FONT, INSIGHT_BUDGET_KEY, LANDMARKS_KEY, ONBOARD_KEY, PLAN_INIT_KEY, PROFILE_KEY, SESS_KEY, SIDE_DAYS_KEY, SPECIAL_ROBBIE_EMAIL } from "./lib/constants";
 import { WORKOUT_DAYS, templateDaysFromBuiltIn } from "./lib/exerciseLibrary";
@@ -24,7 +24,7 @@ import { buildActiveSession, committedAccum, isCardioExercise, migrateSession, p
 import { makeId } from "./lib/id";
 import { downloadBackup, mergeBackup, parseBackup } from "./lib/backup";
 
-export default function IronLog({ authIntent = null, onAuthIntentUsed, onSignedOut }) {
+export default function IronLog({ authIntent = null, onAuthIntentUsed }) {
   const auth = useAuth();
   const [screen, setScreen] = useState("home");
   const [sessions, setSessions] = useState([]);
@@ -238,6 +238,27 @@ export default function IronLog({ authIntent = null, onAuthIntentUsed, onSignedO
       }
     })();
   }, [auth.user, auth.authLoading]);
+
+  // A failed local write is otherwise invisible: every caller discards the rejection.
+  useEffect(() => {
+    const onFail = (e) => { setSyncStatus("failed"); setSyncError(`Couldn't save on this device: ${e.detail}`); };
+    window.addEventListener("iron-log-storage-failed", onFail);
+    return () => window.removeEventListener("iron-log-storage-failed", onFail);
+  }, []);
+
+  // Two tabs each hold the session list in memory and write the whole thing back, so
+  // the slower tab overwrites the other's work. The storage event fires in the OTHER
+  // tab whenever localStorage changes, which is exactly the signal needed to reload
+  // rather than stay stale.
+  useEffect(() => {
+    const key = keyFor(SESS_KEY, auth.user);
+    const onStorage = (e) => {
+      if (e.key !== key || !e.newValue) return;
+      try { setSessions(JSON.parse(e.newValue).map(migrateSession)); } catch {}
+    };
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+  }, [auth.user]);
 
   const persistActive = useCallback((s) => { window.storage.set(ACTIVE_KEY, JSON.stringify(s)).catch(() => {}); }, []);
   const clearActiveStorage = useCallback(() => { window.storage.delete(ACTIVE_KEY).catch(() => {}); }, []);
@@ -671,7 +692,7 @@ export default function IronLog({ authIntent = null, onAuthIntentUsed, onSignedO
         };
       }),
     };
-    setSessions((prev) => { const next = prev.filter((s) => s.id !== record.id); saveSessions(next); return next; });
+    setSessions((prev) => { const next = prev.filter((s) => s.id !== record.id); saveSessions(next, []); return next; });
     if (uid) fbDeleteSession(uid, record.id);
     setActive(rebuilt); persistActive(rebuilt); setScreen("workout");
   }
@@ -687,7 +708,7 @@ export default function IronLog({ authIntent = null, onAuthIntentUsed, onSignedO
 
   function handleDeleteSessions(ids) {
     const set = new Set(ids);
-    setSessions((prev) => { const next = prev.filter((s) => !set.has(s.id)); saveSessions(next); return next; });
+    setSessions((prev) => { const next = prev.filter((s) => !set.has(s.id)); saveSessions(next, []); return next; });
     if (uid) ids.forEach(id => fbDeleteSession(uid, id));
   }
   function handleMergeSessions(ids) {
@@ -746,12 +767,7 @@ export default function IronLog({ authIntent = null, onAuthIntentUsed, onSignedO
   }
   function openCalendarDay(ds, date) { setCalendarDay({ daySessions: ds, date }); setScreen("daydetail"); }
 
-  if (!ready || auth.authLoading) return (
-    <div className="min-h-screen flex flex-col items-center justify-center gap-3" style={{ backgroundColor: C.bg, fontFamily: FONT }}>
-      <Logo size={48} />
-      <div className="text-[13px]" style={{ color: C.ink3 }}>Loading…</div>
-    </div>
-  );
+  if (!ready || auth.authLoading) return <Splash />;
 
   if ((showAuth || forcedAuth) && FB_ENABLED && !auth.user) return (
     <div style={{ fontFamily: FONT, backgroundColor: C.surface }}>
@@ -801,7 +817,7 @@ export default function IronLog({ authIntent = null, onAuthIntentUsed, onSignedO
         {screen === "progress" && <ProgressScreen sessions={sessions} bodyWeight={profile.bodyWeight} landmarkOverrides={landmarkOverrides} />}
         {screen === "history" && <HistoryScreen sessions={sessions} onDeleteSessions={handleDeleteSessions} onContinue={handleContinueWorkout} onMerge={handleMergeSessions} onEdit={(s) => { setEditingSession(s); setScreen("editsession"); }} />}
         {screen === "editsession" && editingSession && <EditSessionScreen session={editingSession} onSave={handleSaveEditedSession} onBack={() => { setEditingSession(null); setScreen("history"); }} onDelete={(id) => { handleDeleteSessions([id]); setEditingSession(null); setScreen("history"); }} />}
-        {screen === "profile" && <ProfileScreen sessions={sessions} customDays={customDays} dayAdds={dayAdds} user={auth.user} auth={auth} syncStatus={syncStatus} syncError={syncError} lastSyncedAt={lastSyncedAt} onForceSync={handleForceSync} profileName={profileName} firstName={profile.firstName} lastName={profile.lastName} onUpdateName={handleUpdateName} bodyWeight={profile.bodyWeight} onUpdateBodyWeight={handleUpdateBodyWeight} landmarkOverrides={landmarkOverrides} onUpdateLandmarks={handleUpdateLandmarks} onBackup={handleBackup} onRestore={handleRestore} onSignedOut={onSignedOut} />}
+        {screen === "profile" && <ProfileScreen sessions={sessions} customDays={customDays} dayAdds={dayAdds} user={auth.user} auth={auth} syncStatus={syncStatus} syncError={syncError} lastSyncedAt={lastSyncedAt} onForceSync={handleForceSync} profileName={profileName} firstName={profile.firstName} lastName={profile.lastName} onUpdateName={handleUpdateName} bodyWeight={profile.bodyWeight} onUpdateBodyWeight={handleUpdateBodyWeight} landmarkOverrides={landmarkOverrides} onUpdateLandmarks={handleUpdateLandmarks} onBackup={handleBackup} onRestore={handleRestore} />}
         {screen === "coach" && <CoachScreen insights={insights} queued={queuedInsights} onDismissInsight={handleDismissInsight} nextDay={nextDay} onBack={() => setScreen("home")} onStartNext={handleSelectDay} profileName={profileName} />}
         {screen === "workout" && active && <WorkoutScreen active={active} setActive={setActive} sessions={sessions} persistActive={persistActive} onFinish={handleFinish} onExit={() => setScreen("home")} onAddExercise={handleAddExerciseFromWorkout} onDiscard={handleDiscardActive} />}
         {screen === "newday" && <NewDayScreen onSave={handleSaveNewDay} onSaveSide={handleSaveSideDay} onCancel={() => setScreen("home")} customExercises={customExercises} onNewCustomExercise={handleNewCustomExercise} sideDays={sideDays} onStartSideDay={handleStartSideDay} onDeleteSideDay={handleDeleteSideDay} />}

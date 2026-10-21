@@ -6,11 +6,12 @@ import { CSS } from "@dnd-kit/utilities";
 import { restrictToVerticalAxis } from "@dnd-kit/modifiers";
 import { Ring } from "./atoms";
 import { ACCENT, C, CARD_SHADOW } from "../lib/constants";
+import { computeSupersetGroups, firstUndoneIn, groupRestValue, handsOffWithinRound, nextUndone, supersetGroupOf } from "../lib/supersets";
 import { ex } from "../lib/exerciseLibrary";
 import { cancelRestNotification, scheduleRestNotification } from "../lib/notifications";
 import { committedAccum, fmtClock, fmtShortDate, formatSetGroups, isCardioExercise, isCardioOnlySession, lastPerformanceFor, liveTimes, relativeDays } from "../lib/sessionUtils";
 
-export function SetRow({ idx, set, prevSet, accent, isActive, onChange, onStart, onEnd, onRemove }) {
+function SetRow({ idx, set, prevSet, accent, isActive, onChange, onStart, onEnd, onRemove }) {
   const weightNum = Number(set.weight) || 0;
   const delta = prevSet ? weightNum - (Number(prevSet.weight) || 0) : null;
 
@@ -64,7 +65,7 @@ export function SetRow({ idx, set, prevSet, accent, isActive, onChange, onStart,
 /* ── Cardio per-exercise timer — count up or countdown from goal ─────── */
 
 
-export function CardioTimer({ exercise }) {
+function CardioTimer({ exercise }) {
   const [running, setRunning] = useState(false);
   const [elapsed, setElapsed] = useState(0);
   const [done, setDone] = useState(false);
@@ -140,7 +141,7 @@ export function CardioTimer({ exercise }) {
 }
 
 
-export function ExerciseCard({ exercise, prev, accent, isOpen, onToggle, onLogSet, onAddSet, onRemoveSet, onSelectLift, onDeleteExercise, onUpdateNotes, dragHandleProps, linkedToNext, linkedFromPrev, activeSetIdx, onStartSet, onEndSet }) {
+function ExerciseCard({ exercise, prev, accent, isOpen, onToggle, onLogSet, onAddSet, onRemoveSet, onSelectLift, onDeleteExercise, onUpdateNotes, dragHandleProps, linkedToNext, linkedFromPrev, activeSetIdx, onStartSet, onEndSet }) {
   const cardio = isCardioExercise(exercise);
   const doneCount = exercise.sets.filter((s) => s.done).length;
   const allDone = cardio ? !!exercise.cardioDone : (doneCount === exercise.sets.length && exercise.sets.length > 0);
@@ -250,7 +251,7 @@ export function ExerciseCard({ exercise, prev, accent, isOpen, onToggle, onLogSe
    slide out of the way in real time, and the drop lands where you see the gap. */
 
 
-export function DragSwipeList({ items, onReorder, onDelete, renderItem, keyFor: getKey, deleteLabelFor }) {
+function DragSwipeList({ items, onReorder, onDelete, renderItem, keyFor: getKey, deleteLabelFor }) {
   const [activeId, setActiveId] = useState(null);
   const [swipe, setSwipe] = useState({ id: null, dx: 0, open: false });
   const swipeStart = useRef({ x: 0, y: 0 });
@@ -375,7 +376,7 @@ export function DragSwipeList({ items, onReorder, onDelete, renderItem, keyFor: 
 // dragged row (and its immediate render) ever re-renders during a drag, not the whole list.
 
 
-export function SortableRow({ id, isBeingDragged, children }) {
+function SortableRow({ id, isBeingDragged, children }) {
   const { setNodeRef, transform, transition, isDragging, attributes, listeners } = useSortable({ id });
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -418,7 +419,7 @@ export function WorkoutScreen({ active, setActive, sessions, persistActive, onFi
     if (active.phase === "resting" && active.restTarget > 0) {
       const elapsed = (Date.now() - active.phaseStartedAt) / 1000;
       const remaining = Math.max(0, active.restTarget - elapsed);
-      const nt = nextUndone(active.exercises);
+      const nt = nextUndone(active.exercises, focusExId);
       const ex = nt ? active.exercises.find((e) => e.exId === nt.exId) : null;
       const label = ex ? ex.selectedLift : "";
       scheduleRestNotification(remaining * 1000, label);
@@ -431,90 +432,13 @@ export function WorkoutScreen({ active, setActive, sessions, persistActive, onFi
   // Clean up any pending notification when leaving the workout screen.
   useEffect(() => () => cancelRestNotification(), []);
 
-  /* ---------------------------------------------------------------------- */
-  /* Supersets: consecutive exercises are grouped when linkedToNext=true on */
-  /* each member but the last. Within a group, sets alternate round by      */
-  /* round (A1, B1, A2, B2…) instead of finishing one exercise before the   */
-  /* next. Rest is only inserted once a full round through the group        */
-  /* completes — not between the group's own members.                      */
-  /* ---------------------------------------------------------------------- */
-  function computeSupersetGroups(exercises) {
-    const groups = [];
-    let i = 0;
-    while (i < exercises.length) {
-      const group = [exercises[i]];
-      while (exercises[i]?.linkedToNext && i + 1 < exercises.length) {
-        i++;
-        group.push(exercises[i]);
-      }
-      groups.push(group);
-      i++;
-    }
-    return groups;
-  }
-  function supersetGroupOf(exercises, exId) {
-    return computeSupersetGroups(exercises).find((g) => g.some((e) => e.exId === exId)) || null;
-  }
-  // Rest between rounds uses the last exercise in the group's configured rest.
-  function groupRestValue(group) { return group && group.length ? group[group.length - 1].rest : 0; }
-  // True only when the set just finished hands off to a *partner* exercise within the
-  // same round — the one case rest is skipped. Moving on to the next round (or back to
-  // a set in the same exercise, which is what happens when you jump around with the
-  // row Play buttons) completes the round and earns a rest like any other set.
-  function handsOffWithinRound(group, target, afterTarget) {
-    if (!group || group.length < 2 || !afterTarget) return false;
-    return afterTarget.exId !== target.exId
-      && afterTarget.setIdx === target.setIdx
-      && group.some((e) => e.exId === afterTarget.exId);
-  }
-
-  /* ---------------------------------------------------------------------- */
-  /* Helper: find the next uncompleted set, interleaving supersets           */
-  /*                                                                        */
-  /* Starting a set parks focus on whatever the user picked, and focus wins  */
-  /* until that work is finished — so tapping Play on an exercise further    */
-  /* down the workout runs THAT exercise to completion instead of snapping   */
-  /* back to the earliest unfinished one. Focus is held on the whole         */
-  /* superset group, not a lone exercise, so jumping into one half of a pair */
-  /* still alternates with its partner the way a superset is meant to run.   */
-  /* Once the focused group is done, focus expires on its own and the plain  */
-  /* top-to-bottom order resumes.                                           */
-  /* ---------------------------------------------------------------------- */
-  function firstUndoneIn(group) {
-    if (group.length === 1) {
-      const e = group[0];
-      const i = e.sets.findIndex((s) => !s.done);
-      return i === -1 ? null : { exId: e.exId, setIdx: i };
-    }
-    const maxRounds = Math.max(...group.map((e) => e.sets.length));
-    for (let r = 0; r < maxRounds; r++) {
-      for (const e of group) {
-        if (e.sets[r] && !e.sets[r].done) return { exId: e.exId, setIdx: r };
-      }
-    }
-    return null;
-  }
-  function nextUndone(exercises, focusId = focusExId) {
-    const groups = computeSupersetGroups(exercises);
-    if (focusId) {
-      const focused = groups.find((g) => g.some((e) => e.exId === focusId));
-      const hit = focused && firstUndoneIn(focused);
-      if (hit) return hit;
-    }
-    for (const group of groups) {
-      const hit = firstUndoneIn(group);
-      if (hit) return hit;
-    }
-    return null; // all sets complete
-  }
-
   function endRest() {
     const now = Date.now();
     const next = { ...active, ...committedAccum(active, now), phase: "working", phaseStartedAt: now, restTarget: 0 };
     setActive(next); persistActive(next);
     setActiveSet(null); setSetStart(null);
     // Auto-open the next exercise that has uncompleted sets
-    const nxt = nextUndone(next.exercises);
+    const nxt = nextUndone(next.exercises, focusExId);
     if (nxt) setOpenExId(nxt.exId);
   }
   function adjustRest(d) { const next = { ...active, restTarget: Math.max(5, active.restTarget + d) }; setActive(next); persistActive(next); }
@@ -539,7 +463,7 @@ export function WorkoutScreen({ active, setActive, sessions, persistActive, onFi
     // Jump to the exercise card that owns that set
     if (openExId !== target.exId) setOpenExId(target.exId);
   }
-  function handleStartSet() { startSetAt(nextUndone(active.exercises)); }
+  function handleStartSet() { startSetAt(nextUndone(active.exercises, focusExId)); }
 
   function endSetAt(target) {
     setActiveSet(null); setSetStart(null);
@@ -564,7 +488,7 @@ export function WorkoutScreen({ active, setActive, sessions, persistActive, onFi
         return { ...st, weight: st.weight || weight, reps: st.reps || reps };
       })};
     });
-    const afterTarget = nextUndone(exercises);
+    const afterTarget = nextUndone(exercises, focusExId);
     const group = supersetGroupOf(exercises, target.exId);
     const stayingInGroup = handsOffWithinRound(group, target, afterTarget);
     // Let focus go once the group it was pinning has no sets left, so it can't
@@ -581,7 +505,7 @@ export function WorkoutScreen({ active, setActive, sessions, persistActive, onFi
     }
     setActive(next); persistActive(next);
   }
-  function handleEndSet() { endSetAt(activeSet || nextUndone(active.exercises)); }
+  function handleEndSet() { endSetAt(activeSet || nextUndone(active.exercises, focusExId)); }
 
   function handleLogSet(exId, setIdx, newSet, isLog) {
     const now = Date.now();
@@ -600,7 +524,7 @@ export function WorkoutScreen({ active, setActive, sessions, persistActive, onFi
     let next = { ...active, exercises };
     if (isLog) {
       const ex2 = exercises.find((e) => e.exId === exId);
-      const afterTarget = nextUndone(exercises);
+      const afterTarget = nextUndone(exercises, focusExId);
       const group = supersetGroupOf(exercises, exId);
       const stayingInGroup = handsOffWithinRound(group, { exId, setIdx }, afterTarget);
       if (stayingInGroup) {
@@ -679,7 +603,7 @@ export function WorkoutScreen({ active, setActive, sessions, persistActive, onFi
   // The list is rendered a block at a time — a superset is one draggable unit.
   const exerciseBlocks = computeSupersetGroups(active.exercises);
 
-  const nextTarget = nextUndone(active.exercises);
+  const nextTarget = nextUndone(active.exercises, focusExId);
   // While a set is running the header describes THAT set — which may be one the user
   // jumped to via its Play button, not the next one in sequence.
   const focusTarget = liveActiveSet || nextTarget;

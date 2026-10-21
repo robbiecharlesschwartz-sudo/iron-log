@@ -28,8 +28,6 @@ export const C = {
 export const ACCENT = { PUSH: C.push, PULL: C.pull, LEGS: C.legs, CUSTOM: C.accent, CARDIO: C.cardio };
 
 
-export const ACCENT_SOFT = { PUSH: "#FBF2D6", PULL: "#E6EFFB", LEGS: "#E3F4EB", CUSTOM: C.accentSoft, CARDIO: "#FBE3E3" };
-
 
 export const FONT = '-apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif';
 

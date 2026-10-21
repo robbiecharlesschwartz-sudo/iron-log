@@ -4,8 +4,8 @@ import Landing from "./components/Landing.jsx";
 import LegalPage from "./components/LegalPage.jsx";
 import { APP_PATH, PAGES, go, onRouteChange, routeFor, shouldEnterApp } from "./lib/route";
 import { FB_ENABLED, useAuth } from "./lib/firebase";
-import { C, FONT, ONBOARD_KEY } from "./lib/constants";
-import { Logo } from "./components/atoms";
+import { ONBOARD_KEY } from "./lib/constants";
+import { Splash } from "./components/atoms";
 
 /**
  * What the URL gets: the public page at "/", the app everywhere else.
@@ -29,9 +29,11 @@ export default function Site() {
   useEffect(() => onRouteChange(setRoute), []);
 
   useEffect(() => {
+    // Re-read per route, not once: signing up and pressing Back returns here, and a
+    // flag read before the signup would still say "never been here".
     // window.storage.get rejects when the key is absent — that is its "not found".
     window.storage.get(ONBOARD_KEY).then(() => setOnboarded(true)).catch(() => setOnboarded(false));
-  }, []);
+  }, [route]);
 
   const signedIn = FB_ENABLED && !!auth.user;
   // The rule itself lives in route.js, where it can be tested. See shouldEnterApp.
@@ -70,21 +72,10 @@ export default function Site() {
     // the meantime is the flash this whole dance exists to avoid; the app's own splash
     // is what a returning reader expects to see.
     if (undecided || enterApp) {
-      return (
-        <div className="min-h-screen flex flex-col items-center justify-center gap-3"
-          style={{ backgroundColor: C.bg, fontFamily: FONT }}>
-          <Logo size={48} />
-          <div className="text-[13px]" style={{ color: C.ink3 }}>Loading…</div>
-        </div>
-      );
+      return <Splash />;
     }
     return (
-      <Landing
-        signedIn={FB_ENABLED && !!auth.user}
-        onSignUp={() => enter("signup")}
-        onLogIn={() => enter("signin")}
-        onOpenApp={() => enter(null)}
-      />
+      <Landing onSignUp={() => enter("signup")} onLogIn={() => enter("signin")} />
     );
   }
 
@@ -92,11 +83,5 @@ export default function Site() {
   // coming back later would reopen whichever tab the landing page chose minutes ago.
   // Signing out returns to the public page: the app still works signed out, so this is
   // a navigation rather than a lock-out.
-  return (
-    <IronLog
-      authIntent={authIntent}
-      onAuthIntentUsed={() => setAuthIntent(null)}
-      onSignedOut={() => go("/")}
-    />
-  );
+  return <IronLog authIntent={authIntent} onAuthIntentUsed={() => setAuthIntent(null)} />;
 }

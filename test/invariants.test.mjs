@@ -11,6 +11,7 @@ import { buildBackup, parseBackup, mergeBackup } from "../src/lib/backup.js";
 import { isFavorite, toggleFavorite } from "../src/lib/favorites.js";
 import { rangeLabel, sessionsInRange } from "../src/lib/excelExport.js";
 import { shouldEnterApp } from "../src/lib/route.js";
+import { groupRestValue, handsOffWithinRound, nextUndone, supersetGroupOf } from "../src/lib/supersets.js";
 
 /* Every test here corresponds to an invariant in PROJECT_OVERVIEW.md §8, and every
    invariant there was a real bug that shipped and got reported. The point of the file is
@@ -534,4 +535,55 @@ test("only the landing page redirects — the legal pages stay put", () => {
   for (const route of ["app", "privacy", "terms", "contact"]) {
     assert.equal(shouldEnterApp({ route, signedIn: true, onboarded: true, authLoading: false }), false, route);
   }
+});
+
+/* ── superset round-robin ───────────────────────────────────────────────────
+   Rest used to be suppressed for a whole superset group rather than only on the
+   handoff between its two partners, so a superset never rested at all. These rules
+   lived inside a 490-line component until now; out here they can be checked. */
+
+const supersetPair = () => [
+  { exId: "a", rest: 90, linkedToNext: true, sets: [{ done: false }, { done: false }] },
+  { exId: "b", rest: 60, sets: [{ done: false }, { done: false }] },
+];
+
+test("a superset alternates A1, B1, A2, B2", () => {
+  const ex = supersetPair();
+  const order = [];
+  for (let i = 0; i < 4; i++) {
+    const next = nextUndone(ex, null);
+    order.push(`${next.exId}${next.setIdx + 1}`);
+    ex.find((e) => e.exId === next.exId).sets[next.setIdx].done = true;
+  }
+  assert.deepEqual(order, ["a1", "b1", "a2", "b2"]);
+});
+
+test("rest is skipped handing off to a partner, and taken on every other move", () => {
+  const ex = supersetPair();
+  const group = supersetGroupOf(ex, "a");
+  // A1 -> B1 is the handoff inside one round: no rest.
+  assert.equal(handsOffWithinRound(group, { exId: "a", setIdx: 0 }, { exId: "b", setIdx: 0 }), true);
+  // B1 -> A2 starts the next round, so it earns a rest like any other set.
+  assert.equal(handsOffWithinRound(group, { exId: "b", setIdx: 0 }, { exId: "a", setIdx: 1 }), false);
+  // A lone exercise never "hands off".
+  assert.equal(handsOffWithinRound(supersetGroupOf([{ exId: "solo", sets: [] }], "solo"),
+    { exId: "solo", setIdx: 0 }, { exId: "solo", setIdx: 1 }), false);
+});
+
+test("a superset rests for its last member's configured time", () => {
+  assert.equal(groupRestValue(supersetGroupOf(supersetPair(), "a")), 60);
+  assert.equal(groupRestValue(null), 0, "no group, no rest value");
+});
+
+test("focus keeps the next set inside the exercise you started", () => {
+  // Tapping Play on the second exercise should finish it before moving on.
+  const ex = [
+    { exId: "a", sets: [{ done: false }] },
+    { exId: "b", sets: [{ done: false }, { done: false }] },
+  ];
+  assert.deepEqual(nextUndone(ex, "b"), { exId: "b", setIdx: 0 });
+  ex[1].sets[0].done = true;
+  assert.deepEqual(nextUndone(ex, "b"), { exId: "b", setIdx: 1 }, "stay in b until b is done");
+  ex[1].sets[1].done = true;
+  assert.deepEqual(nextUndone(ex, "b"), { exId: "a", setIdx: 0 }, "then fall back to what is left");
 });

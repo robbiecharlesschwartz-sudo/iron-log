@@ -1,4 +1,4 @@
-const CACHE = "iron-log-8b88b850b0";
+const CACHE = "iron-log-a1e839fc9f";
 const SHELL = ["./","./index.html","./app.js","./app.css","./manifest.json","./favicon.ico","./icon-180.png","./icon-192.png","./icon-512.png","./icon-512-maskable.png"];
 
 self.addEventListener("install", (event) => {
@@ -108,8 +108,7 @@ async function fireRestNotification(label) {
     renotify: true,
     vibrate: [200, 100, 200],
     requireInteraction: false,
-    data: { url: "./" },
-  });
+      });
 }
 
 function armRestTimeout(delay, label) {
@@ -152,6 +151,6 @@ self.addEventListener("notificationclick", (event) => {
   event.waitUntil((async () => {
     const clientsArr = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
     for (const c of clientsArr) { if ("focus" in c) return c.focus(); }
-    if (self.clients.openWindow) return self.clients.openWindow("./");
+    if (self.clients.openWindow) return self.clients.openWindow("/app");
   })());
 });

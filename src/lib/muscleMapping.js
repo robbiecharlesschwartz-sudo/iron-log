@@ -1,13 +1,6 @@
 import { Check } from "lucide-react";
 import { EXERCISE_LIBRARY } from "./exerciseLibrary";
 
-export const LIFT_MUSCLE = (() => {
-  const m = {};
-  for (const e of EXERCISE_LIBRARY) m[e.name.toLowerCase()] = e.muscle;
-  return m;
-})();
-
-
 export function muscleForLift(name) {
   if (!name) return "Other";
   // 1. Exact match in library (case-insensitive) — always wins

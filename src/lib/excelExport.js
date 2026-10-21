@@ -40,7 +40,7 @@ export function endOfLocalDay(ymd) {
 }
 
 /** The [from, to] bounds a range selection resolves to. Either may be null = open. */
-export function rangeBounds(range) {
+function rangeBounds(range) {
   if (!range || range.id === "30d") return { from: Date.now() - 30 * 86400000, to: null };
   if (range.id === "custom") {
     return { from: startOfLocalDay(range.from), to: endOfLocalDay(range.to) };

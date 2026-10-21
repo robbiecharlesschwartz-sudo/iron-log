@@ -3,7 +3,7 @@ import { Activity, ArrowLeft, Check, ChevronDown, Copy, Flame, History, Play, Tr
 import { C } from "../lib/constants";
 import { fmtClock, fmtShortDate, formatSetGroups, relativeDays, sessionAccentColor, sessionVolume } from "../lib/sessionUtils";
 
-export function SwipeSessionRow({ session, expanded, onToggle, onDelete, selectMode, selected, onSelectToggle, onContinue, onEdit }) {
+function SwipeSessionRow({ session, expanded, onToggle, onDelete, selectMode, selected, onSelectToggle, onContinue, onEdit }) {
   const accent = sessionAccentColor(session);
   const [dx, setDx] = useState(0);
   const startX = useRef(null);

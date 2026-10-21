@@ -377,10 +377,10 @@ export function ProgressScreen({ sessions, bodyWeight, landmarkOverrides }) {
 }
 
 
-export function vLabel(v, [mev, mav, mrv]) { if (v < mev) return "below MEV"; if (v < mav) return "MEV zone"; if (v <= mrv) return "MAV zone"; return "MRV+"; }
+function vLabel(v, [mev, mav, mrv]) { if (v < mev) return "below MEV"; if (v < mav) return "MEV zone"; if (v <= mrv) return "MAV zone"; return "MRV+"; }
 
 
-export function vColor(v, [mev, mav, mrv]) { if (v < mev) return C.ink3; if (v < mav) return C.good; if (v <= mrv) return C.warn; return C.bad; }
+function vColor(v, [mev, mav, mrv]) { if (v < mev) return C.ink3; if (v < mav) return C.good; if (v <= mrv) return C.warn; return C.bad; }
 
 /* ====================================================================== */
 /* HISTORY — swipe + multi-select delete                                 */

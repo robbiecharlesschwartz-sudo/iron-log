@@ -29,7 +29,6 @@ export const SEO = {
 export const NAV = {
   logIn: "Log in",
   signUp: "Sign up free",
-  openApp: "Open app",
   menu: "Menu",
   links: [
     { href: "#how", label: "How it works" },

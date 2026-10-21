@@ -9,7 +9,7 @@ import { computeStreak, withinDays } from "../lib/insights";
 import { DEFAULT_LANDMARKS, MUSCLE_GROUPS, resolveLandmarks } from "../lib/landmarks";
 import { fmtClock } from "../lib/sessionUtils";
 
-export function ProfileScreen({ sessions, customDays, dayAdds, user, auth, syncStatus, syncError, lastSyncedAt, onForceSync, profileName, firstName, lastName, onUpdateName, bodyWeight, onUpdateBodyWeight, landmarkOverrides, onUpdateLandmarks, onBackup, onRestore , onSignedOut}) {
+export function ProfileScreen({ sessions, customDays, dayAdds, user, auth, syncStatus, syncError, lastSyncedAt, onForceSync, profileName, firstName, lastName, onUpdateName, bodyWeight, onUpdateBodyWeight, landmarkOverrides, onUpdateLandmarks, onBackup, onRestore }) {
   const [allTime, setAllTime] = useState(false);
   const fileRef = useRef(null);
   const scoped = useMemo(() => allTime ? sessions : sessions.filter((s) => withinDays(s.date, 30)), [sessions, allTime]);
@@ -197,7 +197,7 @@ export function ProfileScreen({ sessions, customDays, dayAdds, user, auth, syncS
                   <RefreshCw size={15} style={{ color: C.ink3 }} /> Force Sync
                   <span className="ml-auto text-[11px]" style={{ color: C.ink4 }}>Re-upload pending</span>
                 </button>
-                <button onClick={() => { auth.logout(); onSignedOut?.(); }} className="w-full p-3.5 flex items-center gap-2.5 text-[13px] font-semibold text-left" style={{ color: C.bad }}>
+                <button onClick={() => auth.logout()} className="w-full p-3.5 flex items-center gap-2.5 text-[13px] font-semibold text-left" style={{ color: C.bad }}>
                   <LogOut size={15} /> Sign out
                 </button>
               </>

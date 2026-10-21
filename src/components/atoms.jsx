@@ -1,6 +1,13 @@
 import { useRef, useState } from "react";
 import { Check, Cloud, CloudOff, Copy, RefreshCw, Sparkles, Star, Trash2, X } from "lucide-react";
-import { ACCENT, C, CARD_SHADOW } from "../lib/constants";
+import { ACCENT, C, CARD_SHADOW, FONT } from "../lib/constants";
+
+const TONE = {
+  accent: { fg: C.accent, bg: C.accentSoft },
+  good: { fg: C.good, bg: C.goodSoft },
+  warn: { fg: C.warn, bg: C.warnSoft },
+  bad: { fg: C.bad, bg: C.badSoft },
+};
 
 export function Logo({ size = 32 }) {
   return (
@@ -84,23 +91,6 @@ export function Sparkline({ values, color, width = 64, height = 26 }) {
     </svg>
   );
 }
-
-
-export function Toggle({ on, onChange }) {
-  return (
-    <button onClick={onChange} className="w-11 h-[26px] rounded-full relative transition-colors shrink-0" style={{ backgroundColor: on ? C.accent : C.border2 }} aria-label="Toggle">
-      <span className="absolute top-[2px] w-[22px] h-[22px] rounded-full transition-all" style={{ backgroundColor: "#FFFFFF", left: on ? "23px" : "2px", boxShadow: "0 1px 2px rgba(0,0,0,0.15)" }} />
-    </button>
-  );
-}
-
-
-export const TONE = {
-  accent: { fg: C.accent, bg: C.accentSoft },
-  good: { fg: C.good, bg: C.goodSoft },
-  warn: { fg: C.warn, bg: C.warnSoft },
-  bad: { fg: C.bad, bg: C.badSoft },
-};
 
 
 export function InsightCard({ insight, onDismiss }) {
@@ -210,5 +200,17 @@ export function FavoriteStar({ on, onToggle, name }) {
         style={{ color: on ? C.push : C.ink4 }}
         fill={on ? C.push : "none"} />
     </button>
+  );
+}
+
+/* The cold-start splash. Shown by App while its storage loads, and by Site while it
+   decides whether this reader belongs on the public page — two copies that drifted
+   apart the moment either was restyled. */
+export function Splash() {
+  return (
+    <div className="min-h-screen flex flex-col items-center justify-center gap-3" style={{ backgroundColor: C.bg, fontFamily: FONT }}>
+      <Logo size={48} />
+      <div className="text-[13px]" style={{ color: C.ink3 }}>Loading…</div>
+    </div>
   );
 }
